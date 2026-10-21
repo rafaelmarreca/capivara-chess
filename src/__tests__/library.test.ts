@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import 'fake-indexeddb/auto'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseGame } from '../pgn/parse'
 import { gameId } from '../library/gameId'
 import { mergeGames } from '../library/merge'
 import type { SavedGame } from '../library/types'
+import { canReuse, noteCount, type GameRepo } from '../library/repo'
+import { createLocalRepo } from '../library/localRepo'
 
 const lichessGame = `[Event "Rated Blitz game"]
 [White "carol"]
@@ -79,5 +82,97 @@ describe('mergeGames', () => {
   it('createdAt é o menor, updatedAt o maior', () => {
     const m = mergeGames(make({ createdAt: 5, updatedAt: 6 }), make({ createdAt: 2, updatedAt: 9 }))
     expect([m.createdAt, m.updatedAt]).toEqual([2, 9])
+  })
+})
+
+describe('localRepo', () => {
+  const repo = createLocalRepo('teste') as GameRepo
+  const input = (depth: number) => ({
+    id: 'g1',
+    pgn: '1. e4 *',
+    headers: { White: 'alice' },
+    depth,
+    evals: [{ fen: 'a', depth, lines: [] }],
+  })
+  beforeEach(() => repo.clear())
+
+  it('saveAnalysis cria e get devolve', async () => {
+    await repo.saveAnalysis(input(14))
+    const g = await repo.get('g1')
+    expect(g?.depth).toBe(14)
+    expect(g?.pgn).toBe('1. e4 *')
+    expect(g?.evals).toHaveLength(1)
+  })
+
+  it('list não traz evals nem pgn', async () => {
+    await repo.saveAnalysis(input(14))
+    const [meta] = await repo.list()
+    expect(meta.id).toBe('g1')
+    expect('evals' in meta).toBe(false)
+    expect('pgn' in meta).toBe(false)
+  })
+
+  it('reanalisar preserva notas', async () => {
+    await repo.saveAnalysis(input(14))
+    await repo.saveNote('g1', 3, 'oi')
+    await repo.saveAnalysis(input(18))
+    const g = await repo.get('g1')
+    expect(g?.depth).toBe(18)
+    expect(g?.notes[3].text).toBe('oi')
+  })
+
+  it('nota vazia remove', async () => {
+    await repo.saveAnalysis(input(14))
+    await repo.saveNote('g1', 3, 'oi')
+    await repo.saveNote('g1', 3, '  ')
+    const [meta] = await repo.list()
+    expect(meta.notes[3]).toBeUndefined()
+    expect(noteCount(meta)).toBe(0)
+  })
+
+  it('comentário salva e vazio remove', async () => {
+    await repo.saveAnalysis(input(14))
+    await repo.saveComment('g1', 'boa partida')
+    expect((await repo.get('g1'))?.comment?.text).toBe('boa partida')
+    await repo.saveComment('g1', '')
+    expect((await repo.get('g1'))?.comment).toBeUndefined()
+  })
+
+  it('saveNote em partida inexistente não cria nada', async () => {
+    await repo.saveNote('nope', 1, 'x')
+    expect(await repo.get('nope')).toBeNull()
+  })
+
+  it('list ordena por updatedAt desc', async () => {
+    await repo.saveAnalysis({ ...input(14), id: 'velha' })
+    await new Promise((r) => setTimeout(r, 5))
+    await repo.saveAnalysis({ ...input(14), id: 'nova' })
+    expect((await repo.list()).map((m) => m.id)).toEqual(['nova', 'velha'])
+  })
+
+  it('remove apaga metadados e evals', async () => {
+    await repo.saveAnalysis(input(14))
+    await repo.remove('g1')
+    expect(await repo.get('g1')).toBeNull()
+    expect(await repo.list()).toEqual([])
+  })
+
+  it('sem IndexedDB devolve null', () => {
+    vi.stubGlobal('indexedDB', undefined)
+    try {
+      expect(createLocalRepo('sem')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('canReuse', () => {
+  const game = parseGame('1. e4 e5 *')
+  it('aceita evals com uma avaliação por posição', () => {
+    expect(canReuse(make({ evals: [0, 1, 2].map((i) => ({ fen: String(i), depth: 1, lines: [] })) }), game)).toBe(true)
+  })
+  it('recusa evals de tamanho errado', () => {
+    expect(canReuse(make({ evals: [{ fen: 'x', depth: 1, lines: [] }] }), game)).toBe(false)
   })
 })
