@@ -2,13 +2,16 @@ import type { GameAnalysis, ParsedGame } from '../types'
 import { CLASSIFICATIONS } from '../analysis/analyzeGame'
 import { CLASS_META } from '../ui/classifications'
 import { ClassBadge } from './ClassBadge'
+import { NoteField } from './NoteField'
 
 interface Props {
   game: ParsedGame
   analysis: GameAnalysis
+  comment?: string
+  onCommentChange?: (text: string) => void
 }
 
-export function Summary({ game, analysis }: Props) {
+export function Summary({ game, analysis, comment, onCommentChange }: Props) {
   const h = game.headers
   const players = [
     { name: h.White ?? 'Brancas', elo: h.WhiteElo, s: analysis.white, swatch: '#ECEEF0' },
@@ -74,6 +77,15 @@ export function Summary({ game, analysis }: Props) {
           })}
         </tbody>
       </table>
+
+      {onCommentChange && (
+        <NoteField
+          label="Comentário da partida"
+          placeholder="Impressões gerais, o que estudar depois…"
+          value={comment ?? ''}
+          onChange={onCommentChange}
+        />
+      )}
     </div>
   )
 }

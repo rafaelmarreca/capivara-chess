@@ -10,9 +10,11 @@ interface Props {
   moves: (ParsedMove | AnalyzedMove)[]
   ply: number
   onSelect: (ply: number) => void
+  /** Notas do usuário por ply, mostradas resumidas abaixo do par de lances. */
+  notes?: Record<number, string>
 }
 
-export function MoveList({ moves, ply, onSelect }: Props) {
+export function MoveList({ moves, ply, onSelect, notes }: Props) {
   const activeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: 'nearest' })
@@ -53,6 +55,17 @@ export function MoveList({ moves, ply, onSelect }: Props) {
               </button>
             )
           })}
+          {pair
+            .filter((m) => notes?.[m.ply]?.trim())
+            .map((m) => (
+              <button
+                key={`nota-${m.ply}`}
+                onClick={() => onSelect(m.ply)}
+                className="col-start-2 col-end-4 mb-1 line-clamp-1 rounded-small border-l-2 border-default-400 px-2 text-left text-xs text-foreground-500 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                {notes![m.ply]}
+              </button>
+            ))}
         </li>
       ))}
     </ol>

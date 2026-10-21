@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseGame } from '../pgn/parse'
 import { gameId } from '../library/gameId'
 import { mergeGames } from '../library/merge'
@@ -7,6 +7,7 @@ import type { SavedGame } from '../library/types'
 import { canReuse, noteCount, type GameRepo } from '../library/repo'
 import { createLocalRepo } from '../library/localRepo'
 import { savedDate } from '../library/format'
+import { createNoteSaver } from '../library/noteSaver'
 
 const lichessGame = `[Event "Rated Blitz game"]
 [White "carol"]
@@ -193,5 +194,47 @@ describe('savedDate', () => {
   })
   it('ano aparece quando não é o atual', () => {
     expect(savedDate(new Date(2025, 0, 3).getTime(), now)).toBe('3 jan 2025')
+  })
+})
+
+describe('noteSaver', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+  const setup = () => {
+    const calls: [number | 'comment', string][] = []
+    const saver = createNoteSaver(async (k, t) => {
+      calls.push([k, t])
+    })
+    return { calls, saver }
+  }
+
+  it('grava uma vez após 1000 ms com o último texto', async () => {
+    const { calls, saver } = setup()
+    saver.set(3, 'a')
+    saver.set(3, 'ab')
+    await vi.advanceTimersByTimeAsync(999)
+    expect(calls).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(calls).toEqual([[3, 'ab']])
+  })
+
+  it('chaves diferentes gravam separadas', async () => {
+    const { calls, saver } = setup()
+    saver.set(3, 'a')
+    saver.set('comment', 'c')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(calls).toEqual(expect.arrayContaining([[3, 'a'], ['comment', 'c']]))
+    expect(calls).toHaveLength(2)
+  })
+
+  it('flush grava na hora o pendente', async () => {
+    const { calls, saver } = setup()
+    saver.set(3, 'a')
+    expect(saver.pending()).toBe(true)
+    await saver.flush()
+    expect(calls).toEqual([[3, 'a']])
+    expect(saver.pending()).toBe(false)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(calls).toHaveLength(1)
   })
 })

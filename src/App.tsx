@@ -7,6 +7,8 @@ import { parseGame } from './pgn/parse'
 import { gameId } from './library/gameId'
 import { canReuse } from './library/repo'
 import { useLibrary } from './library/useLibrary'
+import { createNoteSaver, type NoteSaver } from './library/noteSaver'
+import type { Note } from './library/types'
 import { SavedGamesList } from './components/SavedGamesList'
 import { ImportPanel } from './components/ImportPanel'
 import { BoardView } from './components/BoardView'
@@ -30,6 +32,9 @@ function readDepth() {
     return DEFAULT_DEPTH
   }
 }
+
+const noteTexts = (notes: Record<number, Note>) =>
+  Object.fromEntries(Object.entries(notes).map(([ply, n]) => [ply, n.text])) as Record<number, string>
 
 /** Pedido de análise: abrir uma partida reaproveita a análise salva; mudar a profundidade refaz. */
 interface AnalysisRequest {
@@ -67,6 +72,10 @@ export default function App() {
   const [incoming, setIncoming] = useState<{ text: string; id: number }>()
   const [request, setRequest] = useState<AnalysisRequest | null>(null)
   const library = useLibrary()
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [comment, setComment] = useState('')
+  const [canNote, setCanNote] = useState(false) // só depois que a partida existe na biblioteca
+  const saverRef = useRef<NoteSaver | null>(null)
   const libraryRef = useRef(library)
   useEffect(() => {
     libraryRef.current = library
@@ -87,6 +96,7 @@ export default function App() {
   const total = game?.moves.length ?? 0
   const go = useCallback(
     (p: number) => {
+      saverRef.current?.flush()
       setPreview(null)
       setPly(Math.max(0, Math.min(total, p)))
     },
@@ -106,6 +116,11 @@ export default function App() {
       const lib = libraryRef.current
       const saved = reuseSaved ? await lib.repo?.get(id).catch(() => null) : null
       if (ctrl.signal.aborted) return
+      if (saved) {
+        setNotes(noteTexts(saved.notes))
+        setComment(saved.comment?.text ?? '')
+        setCanNote(true)
+      }
       if (saved && canReuse(saved, game)) {
         setAnalysis(buildAnalysis(game, saved.evals, saved.depth))
         return
@@ -116,7 +131,10 @@ export default function App() {
       // Só análises completas entram na biblioteca; falha ao salvar não atrapalha a revisão
       await lib.repo
         ?.saveAnalysis({ id, pgn: game.pgn, headers: game.headers, depth, evals: result.evals })
-        .then(() => libraryRef.current.refresh())
+        .then(() => {
+          setCanNote(true)
+          return libraryRef.current.refresh()
+        })
         .catch(() => {})
     })()
       .catch((e: Error) => {
@@ -127,6 +145,13 @@ export default function App() {
       })
     return () => ctrl.abort()
   }, [request])
+
+  // Fechar a aba ou trocar de app no celular: grava a nota que ainda está no debounce
+  useEffect(() => {
+    const onHide = () => saverRef.current?.flush()
+    window.addEventListener('pagehide', onHide)
+    return () => window.removeEventListener('pagehide', onHide)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -180,6 +205,16 @@ export default function App() {
 
   const openGame = async (g: ParsedGame) => {
     const id = await gameId(g)
+    await saverRef.current?.flush()
+    saverRef.current = createNoteSaver(async (key, text) => {
+      const repo = libraryRef.current.repo
+      if (!repo) return
+      await (key === 'comment' ? repo.saveComment(id, text) : repo.saveNote(id, key, text))
+      await libraryRef.current.refresh()
+    })
+    setNotes({})
+    setComment('')
+    setCanNote(false)
     setGame(g)
     setRequest({ game: g, id, depth, reuseSaved: true })
     setPly(0)
@@ -189,9 +224,20 @@ export default function App() {
   }
 
   const closeGame = () => {
+    saverRef.current?.flush()
     setGame(null)
     setRequest(null)
     setProgress(null)
+  }
+
+  const changeNote = (text: string) => {
+    setNotes((n) => ({ ...n, [ply]: text }))
+    saverRef.current?.set(ply, text)
+  }
+
+  const changeComment = (text: string) => {
+    setComment(text)
+    saverRef.current?.set('comment', text)
   }
 
   const openSaved = async (id: string) => {
@@ -370,14 +416,23 @@ export default function App() {
                     opening={current?.opening}
                     previewIndex={preview}
                     onPreview={setPreview}
+                    note={notes[ply]}
+                    onNoteChange={canNote && current ? changeNote : undefined}
                   />
                 )}
                 <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 max-lg:max-h-96">
-                  <MoveList moves={analysis?.moves ?? game.moves} ply={ply} onSelect={go} />
+                  <MoveList moves={analysis?.moves ?? game.moves} ply={ply} onSelect={go} notes={notes} />
                 </div>
               </Tab>
               <Tab key="summary" title="Resumo" isDisabled={!analysis}>
-                {analysis && <Summary game={game} analysis={analysis} />}
+                {analysis && (
+                  <Summary
+                    game={game}
+                    analysis={analysis}
+                    comment={comment}
+                    onCommentChange={canNote ? changeComment : undefined}
+                  />
+                )}
               </Tab>
             </Tabs>
           </div>

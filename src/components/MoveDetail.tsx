@@ -4,6 +4,7 @@ import { CLASS_META } from '../ui/classifications'
 import { ClassBadge } from './ClassBadge'
 import { LineChips } from './LineChips'
 import { San } from './San'
+import { NoteField } from './NoteField'
 
 interface Props {
   move?: AnalyzedMove
@@ -11,11 +12,14 @@ interface Props {
   opening?: string
   previewIndex: number | null
   onPreview: (index: number | null) => void
+  /** Sem onNoteChange o campo de nota não aparece (partida ainda não salva). */
+  note?: string
+  onNoteChange?: (text: string) => void
 }
 
 const NO_SUGGESTION = ['book', 'best', 'brilliant', 'great', 'forced']
 
-export function MoveDetail({ move, initialEval, opening, previewIndex, onPreview }: Props) {
+export function MoveDetail({ move, initialEval, opening, previewIndex, onPreview, note, onNoteChange }: Props) {
   if (!move) {
     return (
       <div className="rounded-medium bg-content2 p-4">
@@ -69,6 +73,17 @@ export function MoveDetail({ move, initialEval, opening, previewIndex, onPreview
             )}
           </div>
           <LineChips line={move.bestLine} active={previewIndex} onSelect={onPreview} />
+        </div>
+      )}
+
+      {onNoteChange && (
+        <div className="mt-4">
+          <NoteField
+            label="Sua nota"
+            placeholder="O que você pensou neste lance?"
+            value={note ?? ''}
+            onChange={onNoteChange}
+          />
         </div>
       )}
     </div>
