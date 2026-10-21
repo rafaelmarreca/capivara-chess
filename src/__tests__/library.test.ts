@@ -8,6 +8,9 @@ import { canReuse, noteCount, type GameRepo } from '../library/repo'
 import { createLocalRepo } from '../library/localRepo'
 import { savedDate } from '../library/format'
 import { createNoteSaver } from '../library/noteSaver'
+import { isFirebaseConfigured } from '../library/firebaseConfig'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const lichessGame = `[Event "Rated Blitz game"]
 [White "carol"]
@@ -236,5 +239,20 @@ describe('noteSaver', () => {
     expect(saver.pending()).toBe(false)
     await vi.advanceTimersByTimeAsync(1000)
     expect(calls).toHaveLength(1)
+  })
+})
+
+describe('Firebase sob demanda', () => {
+  it('sem config preenchida, login fica desligado', () => {
+    expect(isFirebaseConfigured()).toBe(false)
+  })
+
+  it('só src/library/firebase.ts importa o SDK estaticamente', () => {
+    const root = new URL('..', import.meta.url).pathname
+    const files = (readdirSync(root, { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f))
+    const offenders = files.filter(
+      (f) => f !== join('library', 'firebase.ts') && /from ['"]firebase/.test(readFileSync(join(root, f), 'utf8')),
+    )
+    expect(offenders).toEqual([])
   })
 })
