@@ -10,6 +10,7 @@ import { useLibrary } from './library/useLibrary'
 import { createNoteSaver, type NoteSaver } from './library/noteSaver'
 import type { Note } from './library/types'
 import { SavedGamesList } from './components/SavedGamesList'
+import { AccountButton } from './components/AccountButton'
 import { ImportPanel } from './components/ImportPanel'
 import { BoardView } from './components/BoardView'
 import { EvalBar } from './components/EvalBar'
@@ -145,6 +146,13 @@ export default function App() {
       })
     return () => ctrl.abort()
   }, [request])
+
+  const { registerFlush } = library
+  useEffect(() => {
+    registerFlush(async () => {
+      await saverRef.current?.flush()
+    })
+  }, [registerFlush])
 
   // Fechar a aba ou trocar de app no celular: grava a nota que ainda está no debounce
   useEffect(() => {
@@ -292,6 +300,7 @@ export default function App() {
             </PopoverContent>
           </Popover>
         )}
+        <AccountButton library={library} onSignedOut={closeGame} />
         <Button isIconOnly variant="light" aria-label={dark ? 'Usar tema claro' : 'Usar tema escuro'} onPress={toggleTheme}>
           {dark ? <IconSun /> : <IconMoon />}
         </Button>

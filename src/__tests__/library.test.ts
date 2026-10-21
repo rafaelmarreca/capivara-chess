@@ -9,6 +9,7 @@ import { createLocalRepo } from '../library/localRepo'
 import { savedDate } from '../library/format'
 import { createNoteSaver } from '../library/noteSaver'
 import { isFirebaseConfigured } from '../library/firebaseConfig'
+import { migrateLocalToRemote } from '../library/migrate'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -254,5 +255,30 @@ describe('Firebase sob demanda', () => {
       (f) => f !== join('library', 'firebase.ts') && /from ['"]firebase/.test(readFileSync(join(root, f), 'utf8')),
     )
     expect(offenders).toEqual([])
+  })
+})
+
+describe('migrateLocalToRemote', () => {
+  const local = createLocalRepo('mig-local') as GameRepo
+  const remote = createLocalRepo('mig-remote') as GameRepo
+  beforeEach(async () => {
+    await local.clear()
+    await remote.clear()
+  })
+
+  it('sobe partidas só locais e limpa o local', async () => {
+    await local.put(make({ id: 'a', notes: { 2: { text: 'local', updatedAt: 5 } } }))
+    await migrateLocalToRemote(local, remote)
+    expect((await remote.get('a'))?.notes[2].text).toBe('local')
+    expect(await local.list()).toEqual([])
+  })
+
+  it('mescla com a que já existe na conta', async () => {
+    await remote.put(make({ id: 'a', notes: { 2: { text: 'velha', updatedAt: 1 }, 4: { text: 'conta', updatedAt: 1 } } }))
+    await local.put(make({ id: 'a', notes: { 2: { text: 'nova', updatedAt: 9 } } }))
+    await migrateLocalToRemote(local, remote)
+    const g = await remote.get('a')
+    expect(g?.notes[2].text).toBe('nova')
+    expect(g?.notes[4].text).toBe('conta')
   })
 })

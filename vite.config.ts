@@ -180,11 +180,17 @@ export default defineConfig({
       },
       workbox: {
         // Inclui o Stockfish (wasm) e o livro de aberturas para funcionar offline.
-        // A og-image.png só serve para prévias de link: fica fora do precache.
+        // A og-image.png só serve para prévias de link: fica fora do precache. O SDK do Firebase
+        // também: só quem entra com Google o baixa, e aí ele fica no cache de runtime abaixo.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,wasm,pgn}'],
-        globIgnores: ['**/og-image.png'],
+        globIgnores: ['**/og-image.png', '**/assets/firebase-*.js'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/firebase-[\w-]+\.js$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'firebase-sdk', expiration: { maxEntries: 4 } },
+          },
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
             handler: 'StaleWhileRevalidate',
