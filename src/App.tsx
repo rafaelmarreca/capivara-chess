@@ -158,7 +158,7 @@ export default function App() {
         className="flex items-center gap-2 rounded-small font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={24} height={24} className="rounded-[6px]" />
-        Capivara
+        Capivara Chess
       </button>
       {game && (
         <p className="hidden min-w-0 flex-1 truncate text-sm text-foreground-500 sm:block">

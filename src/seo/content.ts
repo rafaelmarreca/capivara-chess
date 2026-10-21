@@ -5,9 +5,9 @@
  */
 import type { Classification } from '../types'
 
-export const SITE_NAME = 'Capivara'
+export const SITE_NAME = 'Capivara Chess'
 
-export const SEO_TITLE = 'Capivara — análise grátis de partidas de xadrez do Lichess'
+export const SEO_TITLE = 'Capivara Chess — análise grátis de partidas de xadrez do Lichess'
 
 /** Meta description (~150 caracteres). */
 export const SEO_DESCRIPTION =
@@ -18,7 +18,7 @@ export const LONG_DESCRIPTION =
   'Analisador de partidas de xadrez grátis e open source. Importe o PGN do Lichess e veja cada lance classificado, do brilhante à capivarada, com o Stockfish rodando no seu navegador.'
 
 export const OG_IMAGE_ALT =
-  'Logo da Capivara, uma capivara de perfil, ao lado do texto: revise suas partidas de xadrez do Lichess, lance a lance.'
+  'Logo do Capivara Chess, uma capivara de perfil, ao lado do texto: revise suas partidas de xadrez do Lichess, lance a lance.'
 
 export const FEATURES = [
   'Importação de PGN do Lichess por arquivo, arrastar e soltar ou texto colado',
@@ -64,7 +64,7 @@ export const CLASS_DESCRIPTIONS: { key: Classification; text: string }[] = [
 export const FAQ: { q: string; a: string }[] = [
   {
     q: 'É grátis?',
-    a: 'Sim. A Capivara é gratuita e open source, sem limite de partidas e sem anúncios.',
+    a: 'Sim. O Capivara Chess é gratuito e open source, sem limite de partidas e sem anúncios.',
   },
   {
     q: 'Precisa de conta?',
@@ -80,6 +80,6 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Funciona offline?',
-    a: 'Sim. Depois do primeiro acesso, a Capivara funciona sem internet e pode ser instalada como app no computador ou no celular.',
+    a: 'Sim. Depois do primeiro acesso, o Capivara Chess funciona sem internet e pode ser instalada como app no computador ou no celular.',
   },
 ]

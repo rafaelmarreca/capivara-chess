@@ -51,7 +51,7 @@ function seo(): Plugin {
       {
         '@type': 'WebApplication',
         name: SITE_NAME,
-        alternateName: 'Capivara Chess',
+        alternateName: 'Capivara',
         ...(siteUrl && { url: siteUrl }),
         description: LONG_DESCRIPTION,
         image: ogImage,
@@ -156,7 +156,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         id: './',
-        name: 'Capivara — análise de partidas de xadrez',
+        name: `${SITE_NAME} — análise de partidas de xadrez`,
         short_name: SITE_NAME,
         description: LONG_DESCRIPTION,
         lang: 'pt-BR',

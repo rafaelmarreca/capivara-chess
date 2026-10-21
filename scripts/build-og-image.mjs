@@ -37,7 +37,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
     <path d="M47 38.5 C49.5 38.8 51.8 38 53.4 36.6" stroke="#5E4B3B" stroke-width="1.4" fill="none" stroke-linecap="round"/>
   </g>
 
-  <text x="${textX}" y="282" font-family="${font}" font-size="112" font-weight="700" fill="#E6E8EB" letter-spacing="-3">Capivara</text>
+  <text x="${textX}" y="282" font-family="${font}" font-size="88" font-weight="700" fill="#E6E8EB" letter-spacing="-2">Capivara Chess</text>
   <text x="${textX}" y="350" font-family="${font}" font-size="38" fill="#B4BAC3">Revise suas partidas de xadrez</text>
   <text x="${textX}" y="400" font-family="${font}" font-size="38" fill="#B4BAC3">do Lichess, lance a lance.</text>
 

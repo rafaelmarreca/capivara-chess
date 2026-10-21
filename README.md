@@ -1,4 +1,4 @@
-# Capivara
+# Capivara Chess
 
 Analisador de partidas de xadrez grátis e open source para o Lichess no estilo da "Revisão de partida" do chess.com. Importe um PGN e cada lance recebe uma classificação (Brilhante, Ótimo, Melhor, Excelente, Bom, Livro, Imprecisão, Erro, Lance perdido, Capivarada), com barra de avaliação, gráfico, precisão por jogador e melhor lance sugerido. Tudo roda no navegador com Stockfish 19 (WASM lite, single-thread).
 
@@ -26,3 +26,7 @@ SITE_URL=https://exemplo.com/capivara-chess/ BASE_PATH=/capivara-chess/ npm run 
 - Textos de SEO (título, descrição, passos, classificações e FAQ, usado também no JSON-LD): `src/seo/content.ts`.
 - Imagem de prévia (1200×630): `npm run og-image` regera `public/og-image.png` a partir de `scripts/build-og-image.mjs`.
 - Buscadores só leem `robots.txt` na raiz do domínio. Num subcaminho do GitHub Pages ele é ignorado; envie o sitemap pelo Google Search Console.
+
+## Licença
+
+[GPL-3.0](LICENSE). O Stockfish, distribuído junto com o site, também é GPL-3.0.
