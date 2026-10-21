@@ -10,6 +10,7 @@ import { savedDate } from '../library/format'
 import { createNoteSaver } from '../library/noteSaver'
 import { isFirebaseConfigured } from '../library/firebaseConfig'
 import { migrateLocalToRemote } from '../library/migrate'
+import { analysisFields } from '../library/analysisFields'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -280,5 +281,44 @@ describe('migrateLocalToRemote', () => {
     const g = await remote.get('a')
     expect(g?.notes[2].text).toBe('nova')
     expect(g?.notes[4].text).toBe('conta')
+  })
+})
+
+describe('analysisFields (gravação da análise na conta)', () => {
+  const input = { id: 'g', pgn: '1. e4 *', headers: {}, depth: 16, evals: [] }
+  it('nunca escreve notes, para não apagar as notas da conta', () => {
+    for (const exists of [true, false, null]) expect('notes' in analysisFields(input, 5, exists)).toBe(false)
+  })
+  it('createdAt só quando a partida comprovadamente não existe', () => {
+    expect(analysisFields(input, 5, false).createdAt).toBe(5)
+    expect('createdAt' in analysisFields(input, 5, true)).toBe(false)
+    expect('createdAt' in analysisFields(input, 5, null)).toBe(false) // leitura falhou (offline)
+  })
+})
+
+describe('migrateLocalToRemote com falha de leitura', () => {
+  it('não sobrescreve a conta nem limpa o local se não conseguir ler a conta', async () => {
+    const local = createLocalRepo('mig-falha') as GameRepo
+    await local.clear()
+    await local.put(make({ id: 'a', notes: { 1: { text: 'x', updatedAt: 1 } } }))
+    const puts: string[] = []
+    const remote = {
+      get: () => Promise.reject(new Error('offline')),
+      put: async (g: SavedGame) => {
+        puts.push(g.id)
+      },
+    } as unknown as GameRepo
+    await expect(migrateLocalToRemote(local, remote)).rejects.toThrow('offline')
+    expect(puts).toEqual([])
+    expect((await local.list()).map((g) => g.id)).toEqual(['a'])
+  })
+})
+
+describe('localRepo: nota em partida inexistente', () => {
+  it('não deixa entrada vazia que quebre a lista', async () => {
+    const repo = createLocalRepo('fantasma') as GameRepo
+    await repo.clear()
+    await repo.saveNote('nope', 1, 'x')
+    expect(await repo.list()).toEqual([])
   })
 })

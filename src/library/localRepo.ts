@@ -27,15 +27,14 @@ export function createLocalRepo(dbPrefix = 'capivara'): GameRepo | null {
     return null
   }
 
-  const edit = async (id: string, fn: (g: StoredGame) => StoredGame) => {
-    if (!(await get(id, games))) return
-    await update<StoredGame>(id, (g) => fn(g!), games)
-  }
+  // Uma única transação, aberta na hora: no pagehide não dá tempo de um get antes do update
+  const edit = (id: string, fn: (g: StoredGame) => StoredGame) =>
+    update<StoredGame | undefined>(id, (g) => (g ? fn(g) : undefined), games)
 
   return {
     async list() {
-      const all = await values<StoredGame>(games)
-      return all.map(toMeta).sort((a, b) => b.updatedAt - a.updatedAt)
+      const all = await values<StoredGame | undefined>(games)
+      return all.filter((g): g is StoredGame => !!g).map(toMeta).sort((a, b) => b.updatedAt - a.updatedAt)
     },
 
     async get(id) {

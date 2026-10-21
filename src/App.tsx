@@ -114,8 +114,7 @@ export default function App() {
     setAnalysis(null)
     setError(null)
     ;(async () => {
-      const lib = libraryRef.current
-      const saved = reuseSaved ? await lib.repo?.get(id).catch(() => null) : null
+      const saved = reuseSaved ? await (await libraryRef.current.ready())?.get(id).catch(() => null) : null
       if (ctrl.signal.aborted) return
       if (saved) {
         setNotes(noteTexts(saved.notes))
@@ -129,13 +128,12 @@ export default function App() {
       const result = await runAnalysis(game, depth, (done, t) => setProgress({ done, total: t }), ctrl.signal)
       if (ctrl.signal.aborted) return
       setAnalysis(result.analysis)
-      // Só análises completas entram na biblioteca; falha ao salvar não atrapalha a revisão
-      await lib.repo
+      // Só análises completas entram na biblioteca; falha ao salvar não atrapalha a revisão.
+      // O repositório é lido agora: o usuário pode ter entrado na conta durante a análise.
+      const repo = await libraryRef.current.ready()
+      await repo
         ?.saveAnalysis({ id, pgn: game.pgn, headers: game.headers, depth, evals: result.evals })
-        .then(() => {
-          setCanNote(true)
-          return libraryRef.current.refresh()
-        })
+        .then(() => setCanNote(true))
         .catch(() => {})
     })()
       .catch((e: Error) => {
@@ -157,9 +155,25 @@ export default function App() {
   // Fechar a aba ou trocar de app no celular: grava a nota que ainda está no debounce
   useEffect(() => {
     const onHide = () => saverRef.current?.flush()
+    // No celular o app costuma ir para o fundo e ser morto sem pagehide
+    const onVisibility = () => document.visibilityState === 'hidden' && onHide()
     window.addEventListener('pagehide', onHide)
-    return () => window.removeEventListener('pagehide', onHide)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', onHide)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
+
+  // Entrou ou saiu da conta (aqui ou em outra aba) com uma partida aberta: reabre a partida
+  // no novo repositório, para notas e análise irem para onde a partida existe
+  const prevRepoRef = useRef(library.repo)
+  useEffect(() => {
+    const prev = prevRepoRef.current
+    prevRepoRef.current = library.repo
+    if (prev && prev !== library.repo && game) openGame(game)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage à troca de repositório
+  }, [library.repo])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -215,10 +229,9 @@ export default function App() {
     const id = await gameId(g)
     await saverRef.current?.flush()
     saverRef.current = createNoteSaver(async (key, text) => {
-      const repo = libraryRef.current.repo
+      const repo = await libraryRef.current.ready()
       if (!repo) return
       await (key === 'comment' ? repo.saveComment(id, text) : repo.saveNote(id, key, text))
-      await libraryRef.current.refresh()
     })
     setNotes({})
     setComment('')
@@ -232,7 +245,8 @@ export default function App() {
   }
 
   const closeGame = () => {
-    saverRef.current?.flush()
+    // A lista só aparece na tela inicial: atualiza ao voltar, não a cada nota (cota do Firestore)
+    saverRef.current?.flush().then(() => libraryRef.current.refresh())
     setGame(null)
     setRequest(null)
     setProgress(null)

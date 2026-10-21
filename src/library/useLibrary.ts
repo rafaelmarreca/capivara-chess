@@ -28,8 +28,13 @@ export interface Library {
   configured: boolean
   user: AccountUser | null
   signIn(): Promise<void>
-  /** 'unsynced' = não saiu: há notas que ainda não chegaram ao servidor; chame de novo com force. */
-  signOut(force?: boolean): Promise<'done' | 'unsynced'>
+  /**
+   * 'unsynced' = não saiu: há notas que ainda não chegaram ao servidor; chame de novo com force.
+   * 'tabs-open' = saiu, mas o cache da conta não pôde ser apagado (outra aba aberta).
+   */
+  signOut(force?: boolean): Promise<'done' | 'unsynced' | 'tabs-open'>
+  /** Repositório para gravar agora: espera a troca local ↔ conta (migração) terminar. */
+  ready(): Promise<GameRepo | null>
   /** O App registra aqui como gravar as notas ainda no debounce, para o logout não perdê-las. */
   registerFlush(fn: () => Promise<void>): void
 }
@@ -43,35 +48,55 @@ export function useLibrary(): Library {
   const fbRef = useRef<FirebaseModule | null>(null)
   const unwatchRef = useRef<(() => void) | null>(null)
   const flushRef = useRef<() => Promise<void>>(async () => {})
+  const repoRef = useRef<GameRepo | null>(null)
+  const remoteRef = useRef(false)
+  const switchingRef = useRef<Promise<void> | null>(null)
+  const signingInRef = useRef(false)
+
+  // O ref é a fonte para quem grava; o estado, para quem renderiza
+  const switchRepo = useCallback((next: GameRepo | null, remote: boolean) => {
+    repoRef.current = next
+    remoteRef.current = remote
+    setRepo(next)
+  }, [])
 
   const firebase = useCallback(async () => {
     fbRef.current ??= await import('./firebase')
     const fb = fbRef.current
     unwatchRef.current ??= fb.watchUser(async (u) => {
-      if (!u) {
-        setUser(null)
-        setRepo(createLocalRepo())
-        return
-      }
-      flag(true)
-      const remote = fb.createFirestoreRepo(u.uid)
-      const local = createLocalRepo()
-      if (local) await migrateLocalToRemote(local, remote).catch(() => {})
-      setUser(u)
-      setRepo(remote)
+      // Notas ainda no debounce vão para o repositório atual antes da troca (e da migração)
+      await flushRef.current()
+      const switching = (async () => {
+        if (!u) {
+          if (!signingInRef.current) flag(false)
+          setUser(null)
+          if (remoteRef.current) switchRepo(createLocalRepo(), false)
+          return
+        }
+        flag(true)
+        const remote = fb.createFirestoreRepo(u.uid)
+        const local = createLocalRepo()
+        // Falha de leitura na conta mantém o local para a próxima vez
+        if (local) await migrateLocalToRemote(local, remote).catch(() => {})
+        setUser(u)
+        switchRepo(remote, true)
+      })()
+      switchingRef.current = switching
+      await switching
+      if (switchingRef.current === switching) switchingRef.current = null
     })
     return fb
-  }, [])
+  }, [switchRepo])
 
   useEffect(() => {
     clearLegacyCache()
-    setRepo(createLocalRepo())
+    switchRepo(createLocalRepo(), false)
     if (configured && flag()) firebase()
     return () => {
       unwatchRef.current?.()
       unwatchRef.current = null
     }
-  }, [configured, firebase])
+  }, [configured, firebase, switchRepo])
 
   const refresh = useCallback(async () => {
     try {
@@ -87,8 +112,15 @@ export function useLibrary(): Library {
   }, [refresh])
 
   const signIn = useCallback(async () => {
-    const fb = await firebase()
-    await fb.signInWithGoogle()
+    // A marca vem antes: no redirecionamento a página sai daqui antes do watchUser rodar
+    flag(true)
+    signingInRef.current = true
+    try {
+      const fb = await firebase()
+      await fb.signInWithGoogle()
+    } finally {
+      signingInRef.current = false
+    }
   }, [firebase])
 
   const signOut = useCallback(
@@ -96,21 +128,26 @@ export function useLibrary(): Library {
       await flushRef.current()
       const fb = await firebase()
       if (!force && !(await fb.waitForSync(3000))) return 'unsynced' as const
-      await fb.signOutAndClear()
+      const cleared = await fb.signOutAndClear().catch(() => false)
       await createLocalRepo()
         ?.clear()
         .catch(() => {})
       flag(false)
       setUser(null)
-      setRepo(createLocalRepo())
-      return 'done' as const
+      switchRepo(createLocalRepo(), false)
+      return cleared ? ('done' as const) : ('tabs-open' as const)
     },
-    [firebase],
+    [firebase, switchRepo],
   )
+
+  const ready = useCallback(async () => {
+    await switchingRef.current
+    return repoRef.current
+  }, [])
 
   const registerFlush = useCallback((fn: () => Promise<void>) => {
     flushRef.current = fn
   }, [])
 
-  return { repo, games, refresh, configured, user, signIn, signOut, registerFlush }
+  return { repo, games, refresh, configured, user, signIn, signOut, registerFlush, ready }
 }

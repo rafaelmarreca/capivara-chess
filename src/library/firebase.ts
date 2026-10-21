@@ -36,6 +36,7 @@ import type { PositionEval } from '../types'
 import type { GameRepo } from './repo'
 import type { Note, SavedGame, SavedGameMeta } from './types'
 import { firebaseConfig } from './firebaseConfig'
+import { analysisFields } from './analysisFields'
 
 export interface AccountUser {
   uid: string
@@ -86,14 +87,21 @@ export async function waitForSync(timeoutMs: number): Promise<boolean> {
   return Promise.race([waitForPendingWrites(db).then(() => true), timeout])
 }
 
-/** Sai da conta e apaga o cache offline do Firestore deste aparelho. */
-export async function signOutAndClear(): Promise<void> {
+/**
+ * Sai da conta e apaga o cache offline do Firestore deste aparelho. false = não deu para
+ * apagar o cache (outra aba do app aberta usando o mesmo banco).
+ */
+export async function signOutAndClear(): Promise<boolean> {
   await signOut(getAuth(firebaseApp()))
-  if (db) {
-    const old = db
-    db = undefined
-    await terminate(old)
+  if (!db) return true
+  const old = db
+  db = undefined
+  await terminate(old)
+  try {
     await clearIndexedDbPersistence(old)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -109,7 +117,7 @@ function toGame(id: string, data: DocumentData, evals: PositionEval[]): SavedGam
     depth: data.depth,
     evals,
     analyzedAt: data.analyzedAt,
-    createdAt: data.createdAt,
+    createdAt: data.createdAt ?? data.analyzedAt,
     updatedAt: data.updatedAt,
     notes: notesFrom(data.notes),
     comment: data.comment ?? undefined,
@@ -154,19 +162,12 @@ export function createFirestoreRepo(uid: string): GameRepo {
       return g.exists() ? toGame(id, g.data(), (e.data()?.evals as PositionEval[]) ?? []) : null
     },
 
-    async saveAnalysis({ id, pgn, headers, depth, evals }) {
-      const now = Date.now()
-      const exists = await getDoc(gameRef(id))
+    async saveAnalysis(input) {
+      const exists = await getDoc(gameRef(input.id))
         .then((d) => d.exists())
-        .catch(() => false)
-      fire(setDoc(evalsRef(id), { evals }))
-      fire(
-        setDoc(
-          gameRef(id),
-          { pgn, headers, depth, analyzedAt: now, updatedAt: now, ...(exists ? {} : { createdAt: now, notes: {} }) },
-          { merge: true },
-        ),
-      )
+        .catch(() => null)
+      fire(setDoc(evalsRef(input.id), { evals: input.evals }))
+      fire(setDoc(gameRef(input.id), analysisFields(input, Date.now(), exists), { merge: true }))
     },
 
     saveNote: (id, ply, text) => edit(id, new FieldPath('notes', String(ply)), note(text)),

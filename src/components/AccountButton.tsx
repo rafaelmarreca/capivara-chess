@@ -25,6 +25,7 @@ export function AccountButton({ library, onSignedOut }: Props) {
   const [busy, setBusy] = useState(false)
   const [unsynced, setUnsynced] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tabsOpen, setTabsOpen] = useState(false)
   const { user } = library
   if (!library.configured) return null
 
@@ -42,13 +43,15 @@ export function AccountButton({ library, onSignedOut }: Props) {
 
   const signOut = async (force = false) => {
     setBusy(true)
+    setError(null)
     try {
       const result = await library.signOut(force)
-      if (result === 'unsynced') setUnsynced(true)
-      else {
-        setUnsynced(false)
-        onSignedOut()
-      }
+      if (result === 'unsynced') return setUnsynced(true)
+      setUnsynced(false)
+      if (result === 'tabs-open') setTabsOpen(true)
+      onSignedOut()
+    } catch {
+      setError('Não foi possível sair. Tente de novo.')
     } finally {
       setBusy(false)
     }
@@ -82,6 +85,24 @@ export function AccountButton({ library, onSignedOut }: Props) {
           {error ? 'Tentar de novo' : 'Entrar com Google'}
         </Button>
       )}
+
+      <Modal isOpen={tabsOpen} onOpenChange={(open) => !open && setTabsOpen(false)} size="sm">
+        <ModalContent>
+          {(close) => (
+            <>
+              <ModalHeader>Você saiu da conta</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-foreground-500">
+                  Feche as outras abas do Capivara Chess para terminar de apagar os dados da conta deste aparelho.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <Button onPress={close}>Entendi</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       <Modal isOpen={unsynced} onOpenChange={(open) => !open && setUnsynced(false)} size="sm">
         <ModalContent>
