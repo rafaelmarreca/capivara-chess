@@ -39,6 +39,13 @@ describe('parse', () => {
     expect(g1.moves[3].uci).toBe('d8h4')
     expect(g2.moves).toHaveLength(4)
   })
+
+  it('aceita comentários consecutivos e após o número do lance', () => {
+    const pgn = '1. e4 { [%eval 0.2] } { [%clk 0:03:00] } 1... { x } e5 { a } { b } { c } 2. Nf3 1-0'
+    const [g] = parsePgnFile(pgn)
+    expect(g.moves.map((m) => m.san)).toEqual(['e4', 'e5', 'Nf3'])
+    expect(g.moves[0].clock).toBe('0:03:00')
+  })
 })
 
 describe('winPercent', () => {

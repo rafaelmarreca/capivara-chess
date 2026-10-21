@@ -21,12 +21,23 @@ function readDepth() {
   }
 }
 
+/** Tempo inicial a partir do TimeControl do PGN ("180+2" -> "0:03:00"), no formato do [%clk] do Lichess. */
+function initialClock(timeControl?: string): string | undefined {
+  const secs = Number(timeControl?.split('+')[0])
+  if (!secs) return undefined
+  const hh = Math.floor(secs / 3600)
+  const mm = String(Math.floor((secs % 3600) / 60)).padStart(2, '0')
+  const ss = String(secs % 60).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
 export default function App() {
   const [game, setGame] = useState<ParsedGame | null>(null)
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ply, setPly] = useState(0)
+  const [preview, setPreview] = useState<number | null>(null) // índice na linha sugerida
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [depth, setDepth] = useState(readDepth)
   const [tab, setTab] = useState<string>('moves')
@@ -34,7 +45,14 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null)
 
   const total = game?.moves.length ?? 0
-  const go = useCallback((p: number) => setPly(Math.max(0, Math.min(total, p))), [total])
+  const go = useCallback(
+    (p: number) => {
+      setPreview(null)
+      setPly(Math.max(0, Math.min(total, p)))
+    },
+    [total],
+  )
+  const lineLength = analysis?.moves[ply - 1]?.bestLine.length ?? 0
 
   useEffect(() => {
     if (!game) return
@@ -59,6 +77,20 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!game || (e.target as Element | null)?.closest?.('input, textarea')) return
+      // Com uma linha sugerida aberta, as setas andam por ela e Esc volta à partida
+      if (preview != null) {
+        const step: Record<string, number | null> = {
+          ArrowLeft: preview - 1,
+          ArrowRight: Math.min(preview + 1, lineLength - 1),
+          Escape: null,
+        }
+        if (e.key in step) {
+          e.preventDefault()
+          const next = step[e.key]
+          setPreview(next != null && next < 0 ? null : next)
+          return
+        }
+      }
       const map: Record<string, number> = { ArrowLeft: ply - 1, ArrowRight: ply + 1, Home: 0, End: total }
       if (e.key in map) {
         e.preventDefault()
@@ -69,7 +101,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [game, ply, total, go])
+  }, [game, ply, total, go, preview, lineLength])
 
   const toggleTheme = () => {
     const next = !dark
@@ -94,6 +126,7 @@ export default function App() {
   const openGame = (g: ParsedGame) => {
     setGame(g)
     setPly(0)
+    setPreview(null)
     setTab('moves')
     setOrientation('white')
   }
@@ -157,7 +190,8 @@ export default function App() {
   }
 
   const current = analysis?.moves[ply - 1]
-  const fen = ply === 0 ? game.startFen : game.moves[ply - 1].fenAfter
+  const previewMove = preview != null ? current?.bestLine[preview] : undefined
+  const fen = previewMove?.fenAfter ?? (ply === 0 ? game.startFen : game.moves[ply - 1].fenAfter)
   const evalNow = ply === 0 ? analysis?.initialEval : current?.evalAfter
   const h = game.headers
   const top = orientation === 'white' ? 'b' : 'w'
@@ -165,9 +199,11 @@ export default function App() {
     const name = color === 'w' ? (h.White ?? 'Brancas') : (h.Black ?? 'Pretas')
     const elo = color === 'w' ? h.WhiteElo : h.BlackElo
     const lastOwn = [...game.moves.slice(0, ply)].reverse().find((m) => m.color === color)
+    const clock = lastOwn?.clock ?? initialClock(h.TimeControl)
     const accuracy = analysis?.[color === 'w' ? 'white' : 'black'].accuracy
     return (
-      <div className="flex items-center gap-2 py-2 text-sm">
+      // Altura fixa: o relógio aparecer não pode empurrar o tabuleiro
+      <div className="flex h-10 items-center gap-2 text-sm">
         <span
           className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-foreground/20"
           style={{ background: color === 'w' ? '#ECEEF0' : '#3A404B' }}
@@ -175,8 +211,8 @@ export default function App() {
         <span className="truncate font-medium">{name}</span>
         {elo && <span className="text-foreground-500">({elo})</span>}
         {accuracy != null && <span className="text-foreground-500">{accuracy.toFixed(1)}%</span>}
-        {lastOwn?.clock && (
-          <span className="ml-auto rounded-small bg-content2 px-2 py-0.5 font-semibold">{lastOwn.clock}</span>
+        {clock && (
+          <span className="ml-auto rounded-small bg-content2 px-2 py-0.5 font-semibold">{clock}</span>
         )}
       </div>
     )
@@ -199,7 +235,7 @@ export default function App() {
           <div className="flex gap-2">
             <EvalBar score={evalNow} orientation={orientation} />
             <div className="min-w-0 flex-1">
-              <BoardView fen={fen} move={current} orientation={orientation} />
+              <BoardView fen={fen} move={current} orientation={orientation} preview={previewMove} />
             </div>
           </div>
           {playerStrip(top === 'w' ? 'b' : 'w')}
@@ -245,7 +281,15 @@ export default function App() {
               classNames={{ base: '-mx-1', panel: 'flex min-h-0 flex-1 flex-col px-0 pb-0' }}
             >
               <Tab key="moves" title="Lances">
-                {analysis && <MoveDetail move={current} initialEval={analysis.initialEval} opening={current?.opening} />}
+                {analysis && (
+                  <MoveDetail
+                    move={current}
+                    initialEval={analysis.initialEval}
+                    opening={current?.opening}
+                    previewIndex={preview}
+                    onPreview={setPreview}
+                  />
+                )}
                 <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 max-lg:max-h-96">
                   <MoveList moves={analysis?.moves ?? game.moves} ply={ply} onSelect={go} />
                 </div>

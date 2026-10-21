@@ -2,6 +2,7 @@ import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YA
 import type { GameAnalysis } from '../types'
 import { formatScore, winPercentWhite } from '../analysis/winPercent'
 import { CLASS_META, NOTABLE } from '../ui/classifications'
+import { San } from './San'
 
 interface Props {
   analysis: GameAnalysis
@@ -11,11 +12,12 @@ interface Props {
 
 export function EvalGraph({ analysis, ply, onSelect }: Props) {
   const data = [
-    { ply: 0, win: winPercentWhite(analysis.initialEval), label: 'Início', score: analysis.initialEval, cls: undefined },
+    { ply: 0, win: winPercentWhite(analysis.initialEval), label: 'Início', san: undefined, score: analysis.initialEval, cls: undefined },
     ...analysis.moves.map((m) => ({
       ply: m.ply,
       win: winPercentWhite(m.evalAfter),
-      label: `${Math.ceil(m.ply / 2)}${m.color === 'w' ? '.' : '...'} ${m.san}`,
+      label: `${Math.ceil(m.ply / 2)}${m.color === 'w' ? '.' : '...'}`,
+      san: m.san as string | undefined,
       score: m.evalAfter,
       cls: m.classification,
     })),
@@ -43,7 +45,9 @@ export function EvalGraph({ analysis, ply, onSelect }: Props) {
               if (!active || !p) return null
               return (
                 <div className="rounded-small bg-content1 px-2 py-1 text-xs shadow-md">
-                  <span className="font-semibold">{p.label}</span>{' '}
+                  <span className="font-semibold">
+                    {p.label} {p.san && <San san={p.san} />}
+                  </span>{' '}
                   <span className="text-foreground-500">{formatScore(p.score)}</span>
                 </div>
               )

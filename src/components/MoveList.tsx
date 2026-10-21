@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { AnalyzedMove, ParsedMove } from '../types'
 import { ClassBadge } from './ClassBadge'
+import { San } from './San'
 
 interface Props {
   moves: (ParsedMove | AnalyzedMove)[]
@@ -40,7 +41,7 @@ export function MoveList({ moves, ply, onSelect }: Props) {
                 }`}
               >
                 {'classification' in m ? <ClassBadge classification={m.classification} size={16} /> : <span className="w-4" />}
-                {m.san}
+                <San san={m.san} />
               </button>
             )
           })}

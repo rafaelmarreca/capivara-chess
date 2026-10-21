@@ -22,9 +22,25 @@ export function splitPgn(text: string): string[] {
   return games
 }
 
+/**
+ * Ajusta construções válidas em PGN que o parser do chess.js rejeita:
+ * comentários consecutivos (`{a} {b}`) e comentário logo após o número do lance (`1. {a} e4`).
+ */
+export function normalizePgn(pgn: string): string {
+  let out = pgn
+  let prev
+  do {
+    prev = out
+    out = out
+      .replace(/\}\s*\{/g, ' ') // comentários não se aninham, então `}` sempre fecha um
+      .replace(/(\d+\.(?:\.\.)?)\s*(\{[^}]*\})/g, '$2 $1')
+  } while (out !== prev)
+  return out
+}
+
 export function parseGame(pgn: string): ParsedGame {
   const chess = new Chess()
-  chess.loadPgn(pgn)
+  chess.loadPgn(normalizePgn(pgn))
   const headers = Object.fromEntries(
     Object.entries(chess.getHeaders()).filter(([, v]) => v != null && v !== ''),
   ) as Record<string, string>

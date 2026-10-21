@@ -27,3 +27,18 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Ícones de peça na notação: silhueta da peça do tabuleiro, na cor do texto e na altura das maiúsculas */
+.figurine {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0 -0.04em 0 -0.12em;
+  vertical-align: -0.17em;
+}
+
+.figurine svg path,
+.figurine svg circle {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}

@@ -3,6 +3,7 @@ import type {
   AnalyzedMove,
   Classification,
   GameAnalysis,
+  LineMove,
   ParsedGame,
   PlayerSummary,
   PositionEval,
@@ -45,12 +46,14 @@ export function positionsOf(game: ParsedGame): string[] {
   return [game.startFen, ...game.moves.map((m) => m.fenAfter)]
 }
 
-function uciToSanLine(fen: string, pv: string[], max = 8): string[] {
+function pvToLine(fen: string, pv: string[], max = 8): LineMove[] {
   const chess = new Chess(fen)
-  const out: string[] = []
+  const out: LineMove[] = []
   for (const uci of pv.slice(0, max)) {
+    const moveNumber = chess.moveNumber()
     try {
-      out.push(chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).san)
+      const m = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+      out.push({ san: m.san, uci, from: m.from, to: m.to, color: m.color, moveNumber, fenAfter: m.after })
     } catch {
       break
     }
@@ -101,7 +104,7 @@ export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: nu
       inBook = false
     }
 
-    const bestLineSan = best ? uciToSanLine(move.fenBefore, best.pv) : []
+    const bestLine = best ? pvToLine(move.fenBefore, best.pv) : []
     moves.push({
       ...move,
       classification,
@@ -111,8 +114,8 @@ export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: nu
       accuracy: classification === 'book' || classification === 'forced' ? 100 : moveAccuracy(loss),
       evalAfter: scoreAt(i + 1),
       bestMoveUci: best?.pv[0],
-      bestMoveSan: bestLineSan[0],
-      bestLineSan,
+      bestMoveSan: bestLine[0]?.san,
+      bestLine,
       opening: opening?.name,
     })
   })

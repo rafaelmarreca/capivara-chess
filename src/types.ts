@@ -48,6 +48,17 @@ export type Classification =
   | 'blunder'
   | 'forced'
 
+/** Lance de uma linha sugerida pelo motor, com a posição resultante. */
+export interface LineMove {
+  san: string
+  uci: string
+  from: string
+  to: string
+  color: Color
+  moveNumber: number
+  fenAfter: string
+}
+
 export interface AnalyzedMove extends ParsedMove {
   classification: Classification
   winBefore: number // win% do jogador que moveu, antes do lance
@@ -57,7 +68,7 @@ export interface AnalyzedMove extends ParsedMove {
   evalAfter: Score // ponto de vista das brancas
   bestMoveUci?: string
   bestMoveSan?: string
-  bestLineSan: string[]
+  bestLine: LineMove[] // linha principal do motor a partir da posição antes do lance
   opening?: string
 }
 

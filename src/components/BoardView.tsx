@@ -1,5 +1,5 @@
 import { Chessboard } from 'react-chessboard'
-import type { AnalyzedMove } from '../types'
+import type { AnalyzedMove, LineMove } from '../types'
 import { CLASS_META } from '../ui/classifications'
 import { ClassBadge } from './ClassBadge'
 
@@ -7,13 +7,18 @@ interface Props {
   fen: string
   move?: AnalyzedMove // lance que levou à posição exibida
   orientation: 'white' | 'black'
+  preview?: LineMove // lance da linha sugerida em visualização
 }
+
+const PREVIEW_COLOR = '#7C9CBF'
 
 const BEST_ARROW = 'rgba(127, 178, 74, 0.85)'
 
-export function BoardView({ fen, move, orientation }: Props) {
-  const color = move ? CLASS_META[move.classification].color : undefined
+export function BoardView({ fen, move, orientation, preview }: Props) {
+  const color = preview ? PREVIEW_COLOR : move ? CLASS_META[move.classification].color : undefined
+  const marked = preview ?? move
   const showBest =
+    !preview &&
     move?.bestMoveUci &&
     move.bestMoveUci !== move.uci &&
     !['book', 'best', 'brilliant', 'great', 'forced'].includes(move.classification)
@@ -39,14 +44,14 @@ export function BoardView({ fen, move, orientation }: Props) {
           darkSquareNotationStyle: { color: '#DCE1E6', fontWeight: 600 },
           boardStyle: { borderRadius: 10, overflow: 'visible' },
           squareRenderer: ({ square, children }) => {
-            const highlighted = move && (square === move.from || square === move.to)
+            const highlighted = marked && (square === marked.from || square === marked.to)
             return (
               <div className="relative h-full w-full">
                 {highlighted && (
                   <div className="absolute inset-0" style={{ background: color, opacity: 0.45 }} />
                 )}
                 <div className="relative h-full w-full">{children}</div>
-                {move && square === move.to && (
+                {!preview && move && square === move.to && (
                   <ClassBadge
                     classification={move.classification}
                     size={26}
