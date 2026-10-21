@@ -28,6 +28,8 @@ export const FEATURES = [
   'Precisão de cada jogador pela fórmula do Lichess',
   'Sugestão do melhor lance em cada posição',
   'Detecção da abertura',
+  'Análises salvas automaticamente, com notas por lance e comentário da partida',
+  'Login opcional com Google para sincronizar as análises entre aparelhos',
   'Funciona offline e pode ser instalado como app',
 ]
 
@@ -68,7 +70,11 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Precisa de conta?',
-    a: 'Não. Basta importar o PGN da partida, sem cadastro e sem login.',
+    a: 'Não. Basta importar o PGN da partida, sem cadastro. O login com Google é opcional e serve só para sincronizar suas análises entre aparelhos.',
+  },
+  {
+    q: 'Minhas análises ficam salvas?',
+    a: 'Sim. Toda partida analisada é salva automaticamente, junto com suas notas em cada lance e o comentário da partida, e aparece em "Minhas análises" na página inicial. Sem login, ficam só neste navegador. Com login, ficam na sua conta e abrem no celular e no computador.',
   },
   {
     q: 'Funciona com partidas do chess.com?',
@@ -76,10 +82,10 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Meus dados saem do computador?',
-    a: 'Não. O Stockfish roda dentro do seu navegador, e a partida nunca é enviada para um servidor.',
+    a: 'Sem login, não: o Stockfish roda dentro do seu navegador e nada é enviado para um servidor. Se você entrar com Google, as análises e notas salvas são guardadas na sua conta, no Firebase, e só você tem acesso a elas.',
   },
   {
     q: 'Funciona offline?',
-    a: 'Sim. Depois do primeiro acesso, o Capivara Chess funciona sem internet e pode ser instalada como app no computador ou no celular.',
+    a: 'Sim. Depois do primeiro acesso, o Capivara Chess funciona sem internet e pode ser instalado como app no computador ou no celular. Com login, as notas feitas offline sincronizam quando a conexão volta.',
   },
 ]
