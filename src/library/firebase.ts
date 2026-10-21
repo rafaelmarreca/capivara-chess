@@ -7,7 +7,9 @@ import {
   GoogleAuthProvider,
   getAuth,
   onAuthStateChanged,
+  getRedirectResult,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from 'firebase/auth'
 import {
@@ -34,7 +36,7 @@ import {
 import type { PositionEval } from '../types'
 import type { GameRepo } from './repo'
 import type { Note, SavedGame, SavedGameMeta } from './types'
-import { firebaseConfig } from './firebaseConfig'
+import { authDomainFor, firebaseConfig } from './firebaseConfig'
 import { analysisFields } from './analysisFields'
 
 export interface AccountUser {
@@ -47,7 +49,7 @@ let app: FirebaseApp | undefined
 let db: Firestore | undefined
 
 function firebaseApp() {
-  return (app ??= initializeApp(firebaseConfig))
+  return (app ??= initializeApp({ ...firebaseConfig, authDomain: authDomainFor(location.hostname) }))
 }
 
 function firestore() {
@@ -57,20 +59,40 @@ function firestore() {
   }))
 }
 
+/** Erro na volta do redirect (ex.: conta recusada); o sucesso chega pelo watchUser. */
+export async function redirectError(): Promise<string | null> {
+  try {
+    await getRedirectResult(getAuth(firebaseApp()))
+    return null
+  } catch (e) {
+    return (e as { code?: string }).code ?? 'auth/unknown'
+  }
+}
+
 export function watchUser(cb: (user: AccountUser | null) => void): () => void {
   return onAuthStateChanged(getAuth(firebaseApp()), (u) =>
     cb(u ? { uid: u.uid, name: u.displayName ?? u.email ?? 'Conta Google', photoURL: u.photoURL ?? undefined } : null),
   )
 }
 
+/** O helper de login está no mesmo domínio do site (ver authDomainFor): aí o redirect funciona. */
+function sameSiteAuth() {
+  return authDomainFor(location.hostname) === location.hostname
+}
+
 /**
- * Só popup: o redirecionamento perde o login quando o navegador isola o armazenamento de
- * terceiros (o domínio de login é firebaseapp.com, não o do site, e o GitHub Pages não permite
- * o proxy de /__/auth). 'blocked' = o navegador bloqueou a janela.
+ * No site publicado, redirect (a página sai daqui; o resultado chega pelo watchUser na volta).
+ * No localhost o helper é do firebaseapp.com, outro site, e o redirect perde o login: popup.
+ * 'blocked' = o navegador bloqueou a janela.
  */
 export async function signInWithGoogle(): Promise<'ok' | 'blocked' | 'cancelled'> {
+  const auth = getAuth(firebaseApp())
+  if (sameSiteAuth()) {
+    await signInWithRedirect(auth, new GoogleAuthProvider())
+    return 'ok'
+  }
   try {
-    await signInWithPopup(getAuth(firebaseApp()), new GoogleAuthProvider())
+    await signInWithPopup(auth, new GoogleAuthProvider())
     return 'ok'
   } catch (e) {
     const code = (e as { code?: string }).code

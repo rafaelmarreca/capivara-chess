@@ -51,9 +51,21 @@ o `.firebaserc` local, que pode ser commitado.
 50 mil usuários ativos por mês no login. Se um limite estourar, o serviço para até o
 dia ou mês seguinte; não há cobrança.
 
-## Login só por popup
+## Login por redirect no site publicado
 
-O app entra com Google por uma janela pop-up. O redirecionamento não é usado: ele perde o
-login em navegadores que isolam o armazenamento de terceiros, porque o domínio de login
-(`capivara-chess.firebaseapp.com`) é diferente do site e o GitHub Pages não permite
-fazer proxy de `/__/auth`. Se o navegador bloquear a janela, o app pede para permitir pop-ups.
+No site publicado o login é por redirect, passando pelo próprio domínio: o helper de login
+do Firebase (`/__/auth/*`) é servido pelo repositório `rafaelmarreca/rafaelmarreca.github.io`,
+e o app usa `authDomain: rafaelmarreca.github.io` lá (ver `authDomainFor` em
+`src/library/firebaseConfig.ts`). Isso evita depender de armazenamento de terceiros, que os
+navegadores isolam; com `authDomain` no `firebaseapp.com` o redirect volta sem login.
+
+Para isso funcionar, uma vez:
+
+1. Publicar o repositório `rafaelmarreca.github.io` (GitHub Pages da raiz do domínio).
+2. No [Google Cloud Console](https://console.cloud.google.com/apis/credentials?project=capivara-chess),
+   em **Credenciais → IDs do cliente OAuth 2.0 → Web client (auto created by Google Service)**:
+   - **Origens JavaScript autorizadas:** adicionar `https://rafaelmarreca.github.io`.
+   - **URIs de redirecionamento autorizados:** adicionar `https://rafaelmarreca.github.io/__/auth/handler`.
+
+No `localhost` o helper continua no `firebaseapp.com`, onde o redirect não funciona; lá o
+login é por popup.

@@ -8,7 +8,7 @@ import { canReuse, noteCount, type GameRepo } from '../library/repo'
 import { createLocalRepo } from '../library/localRepo'
 import { savedDate } from '../library/format'
 import { createNoteSaver } from '../library/noteSaver'
-import { isFirebaseConfigured } from '../library/firebaseConfig'
+import { authDomainFor, isFirebaseConfigured } from '../library/firebaseConfig'
 import { migrateLocalToRemote } from '../library/migrate'
 import { analysisFields } from '../library/analysisFields'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -322,5 +322,14 @@ describe('localRepo: nota em partida inexistente', () => {
     await repo.clear()
     await repo.saveNote('nope', 1, 'x')
     expect(await repo.list()).toEqual([])
+  })
+})
+
+describe('authDomainFor', () => {
+  it('no site publicado, o login passa pelo próprio domínio (redirect sem storage de terceiros)', () => {
+    expect(authDomainFor('rafaelmarreca.github.io')).toBe('rafaelmarreca.github.io')
+  })
+  it('em qualquer outro host usa o domínio do Firebase', () => {
+    expect(authDomainFor('localhost')).toBe('capivara-chess.firebaseapp.com')
   })
 })

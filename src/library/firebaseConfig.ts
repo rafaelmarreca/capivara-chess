@@ -13,3 +13,14 @@ export const firebaseConfig = {
 export function isFirebaseConfigured(config: typeof firebaseConfig = firebaseConfig): boolean {
   return Boolean(config.apiKey && config.projectId)
 }
+
+// Domínio onde o helper de login (/__/auth/*) também é servido: o repositório rafaelmarreca.github.io
+const SELF_HOSTED_AUTH = 'rafaelmarreca.github.io'
+
+/**
+ * No site publicado o login passa pelo próprio domínio, para o redirect não depender de
+ * armazenamento de terceiros (que o navegador isola). Fora dele, o domínio do Firebase.
+ */
+export function authDomainFor(hostname: string): string {
+  return hostname === SELF_HOSTED_AUTH ? SELF_HOSTED_AUTH : firebaseConfig.authDomain
+}

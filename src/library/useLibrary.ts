@@ -27,6 +27,8 @@ export interface Library {
   refresh(): Promise<void>
   configured: boolean
   user: AccountUser | null
+  /** Código do erro na volta do redirect de login, se houve. */
+  authError: string | null
   signIn(): Promise<'ok' | 'blocked' | 'cancelled'>
   /** Começa a baixar o SDK antes do clique, para o popup abrir dentro do gesto do usuário. */
   prepare(): void
@@ -47,6 +49,7 @@ export function useLibrary(): Library {
   const [repo, setRepo] = useState<GameRepo | null>(null)
   const [games, setGames] = useState<SavedGameMeta[]>([])
   const [user, setUser] = useState<AccountUser | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
   const fbRef = useRef<FirebaseModule | null>(null)
   const unwatchRef = useRef<(() => void) | null>(null)
   const flushRef = useRef<() => Promise<void>>(async () => {})
@@ -63,7 +66,10 @@ export function useLibrary(): Library {
   }, [])
 
   const firebase = useCallback(async () => {
-    fbRef.current ??= await import('./firebase')
+    if (!fbRef.current) {
+      fbRef.current = await import('./firebase')
+      fbRef.current.redirectError().then(setAuthError)
+    }
     const fb = fbRef.current
     unwatchRef.current ??= fb.watchUser(async (u) => {
       // Notas ainda no debounce vão para o repositório atual antes da troca (e da migração)
@@ -114,6 +120,8 @@ export function useLibrary(): Library {
   }, [refresh])
 
   const signIn = useCallback(async () => {
+    // No redirect a página sai daqui antes do watchUser: a marca garante carregar o SDK na volta
+    flag(true)
     signingInRef.current = true
     try {
       const fb = await firebase()
@@ -153,5 +161,5 @@ export function useLibrary(): Library {
     flushRef.current = fn
   }, [])
 
-  return { repo, games, refresh, configured, user, signIn, prepare, signOut, registerFlush, ready }
+  return { repo, games, refresh, configured, user, authError, signIn, prepare, signOut, registerFlush, ready }
 }

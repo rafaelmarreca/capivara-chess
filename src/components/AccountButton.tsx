@@ -28,6 +28,7 @@ export function AccountButton({ library, onSignedOut }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [tabsOpen, setTabsOpen] = useState(false)
   const { user } = library
+  const shownError = error ?? (library.authError && !user ? `Não foi possível entrar (${library.authError}).` : null)
   if (!library.configured) return null
 
   const signIn = async () => {
@@ -83,7 +84,7 @@ export function AccountButton({ library, onSignedOut }: Props) {
           </DropdownMenu>
         </Dropdown>
       ) : (
-        <Tooltip content={error} isOpen={!!error} placement="bottom-end" color="danger" className="max-w-64">
+        <Tooltip content={shownError} isOpen={!!shownError} placement="bottom-end" color="danger" className="max-w-64">
           <Button
             size="sm"
             variant="flat"
@@ -92,7 +93,7 @@ export function AccountButton({ library, onSignedOut }: Props) {
             onPointerEnter={library.prepare}
             onFocus={library.prepare}
           >
-            {error ? 'Tentar de novo' : 'Entrar com Google'}
+            {shownError ? 'Tentar de novo' : 'Entrar com Google'}
           </Button>
         </Tooltip>
       )}
