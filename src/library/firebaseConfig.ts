@@ -4,12 +4,12 @@
  * Enquanto estiver vazia, o botão de login não aparece. Ver docs/firebase-setup.md.
  */
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  appId: '',
+  apiKey: "AIzaSyAhZVjmiFkaQNuRUrt3bFaFlIETFQ5xKno",
+  authDomain: "capivara-chess.firebaseapp.com",
+  projectId: "capivara-chess",
+  appId: "1:652664702736:web:5f552a85d91b646c628795",
 }
 
-export function isFirebaseConfigured(): boolean {
-  return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)
+export function isFirebaseConfigured(config: typeof firebaseConfig = firebaseConfig): boolean {
+  return Boolean(config.apiKey && config.projectId)
 }

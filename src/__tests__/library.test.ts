@@ -246,7 +246,9 @@ describe('noteSaver', () => {
 
 describe('Firebase sob demanda', () => {
   it('sem config preenchida, login fica desligado', () => {
-    expect(isFirebaseConfigured()).toBe(false)
+    expect(isFirebaseConfigured({ apiKey: '', authDomain: '', projectId: '', appId: '' })).toBe(false)
+    expect(isFirebaseConfigured({ apiKey: 'k', authDomain: '', projectId: '', appId: '' })).toBe(false)
+    expect(isFirebaseConfigured({ apiKey: 'k', authDomain: 'd', projectId: 'p', appId: 'a' })).toBe(true)
   })
 
   it('só src/library/firebase.ts importa o SDK estaticamente', () => {

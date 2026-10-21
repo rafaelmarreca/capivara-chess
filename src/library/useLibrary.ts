@@ -27,7 +27,9 @@ export interface Library {
   refresh(): Promise<void>
   configured: boolean
   user: AccountUser | null
-  signIn(): Promise<void>
+  signIn(): Promise<'ok' | 'blocked' | 'cancelled'>
+  /** Começa a baixar o SDK antes do clique, para o popup abrir dentro do gesto do usuário. */
+  prepare(): void
   /**
    * 'unsynced' = não saiu: há notas que ainda não chegaram ao servidor; chame de novo com force.
    * 'tabs-open' = saiu, mas o cache da conta não pôde ser apagado (outra aba aberta).
@@ -112,16 +114,18 @@ export function useLibrary(): Library {
   }, [refresh])
 
   const signIn = useCallback(async () => {
-    // A marca vem antes: no redirecionamento a página sai daqui antes do watchUser rodar
-    flag(true)
     signingInRef.current = true
     try {
       const fb = await firebase()
-      await fb.signInWithGoogle()
+      return await fb.signInWithGoogle()
     } finally {
       signingInRef.current = false
     }
   }, [firebase])
+
+  const prepare = useCallback(() => {
+    if (configured) firebase().catch(() => {})
+  }, [configured, firebase])
 
   const signOut = useCallback(
     async (force = false) => {
@@ -149,5 +153,5 @@ export function useLibrary(): Library {
     flushRef.current = fn
   }, [])
 
-  return { repo, games, refresh, configured, user, signIn, signOut, registerFlush, ready }
+  return { repo, games, refresh, configured, user, signIn, prepare, signOut, registerFlush, ready }
 }

@@ -8,7 +8,6 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
 } from 'firebase/auth'
 import {
@@ -64,19 +63,20 @@ export function watchUser(cb: (user: AccountUser | null) => void): () => void {
   )
 }
 
-export async function signInWithGoogle(): Promise<void> {
-  const auth = getAuth(firebaseApp())
-  const provider = new GoogleAuthProvider()
+/**
+ * Só popup: o redirecionamento perde o login quando o navegador isola o armazenamento de
+ * terceiros (o domínio de login é firebaseapp.com, não o do site, e o GitHub Pages não permite
+ * o proxy de /__/auth). 'blocked' = o navegador bloqueou a janela.
+ */
+export async function signInWithGoogle(): Promise<'ok' | 'blocked' | 'cancelled'> {
   try {
-    await signInWithPopup(auth, provider)
+    await signInWithPopup(getAuth(firebaseApp()), new GoogleAuthProvider())
+    return 'ok'
   } catch (e) {
-    // PWA instalado no iOS e navegadores que bloqueiam popup: cai para o redirecionamento
     const code = (e as { code?: string }).code
-    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-environment') {
-      await signInWithRedirect(auth, provider)
-    } else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
-      throw e
-    }
+    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-environment') return 'blocked'
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return 'cancelled'
+    throw e
   }
 }
 

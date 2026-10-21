@@ -8,6 +8,7 @@ import {
   DropdownSection,
   DropdownTrigger,
   Modal,
+  Tooltip,
   ModalBody,
   ModalContent,
   ModalFooter,
@@ -33,7 +34,8 @@ export function AccountButton({ library, onSignedOut }: Props) {
     setBusy(true)
     setError(null)
     try {
-      await library.signIn()
+      const result = await library.signIn()
+      if (result === 'blocked') setError('O navegador bloqueou a janela de login. Permita pop-ups para este site e tente de novo.')
     } catch {
       setError('Não foi possível entrar. Tente de novo.')
     } finally {
@@ -81,9 +83,18 @@ export function AccountButton({ library, onSignedOut }: Props) {
           </DropdownMenu>
         </Dropdown>
       ) : (
-        <Button size="sm" variant="flat" isLoading={busy} onPress={signIn} title={error ?? undefined}>
-          {error ? 'Tentar de novo' : 'Entrar com Google'}
-        </Button>
+        <Tooltip content={error} isOpen={!!error} placement="bottom-end" color="danger" className="max-w-64">
+          <Button
+            size="sm"
+            variant="flat"
+            isLoading={busy}
+            onPress={signIn}
+            onPointerEnter={library.prepare}
+            onFocus={library.prepare}
+          >
+            {error ? 'Tentar de novo' : 'Entrar com Google'}
+          </Button>
+        </Tooltip>
       )}
 
       <Modal isOpen={tabsOpen} onOpenChange={(open) => !open && setTabsOpen(false)} size="sm">

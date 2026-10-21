@@ -28,8 +28,12 @@ os dados são as regras do passo 3.
 
 ## 3. Publicar as regras de segurança
 
-As regras ficam em `firestore.rules` (cada usuário só acessa `users/{seu uid}/…`).
-Publique pela CLI, e de novo sempre que o arquivo mudar:
+As regras ficam em `firestore.rules` (cada usuário só acessa `users/{seu uid}/…`). O banco
+criado em modo de produção bloqueia tudo até elas serem publicadas, e é preciso republicar
+sempre que o arquivo mudar.
+
+Pelo console: **Firestore Database → Regras**, cole o conteúdo de `firestore.rules` e
+clique em **Publicar**. Ou pela CLI:
 
 ```bash
 npm i -g firebase-tools
@@ -46,3 +50,10 @@ o `.firebaserc` local, que pode ser commitado.
 1 GiB armazenado, 50 mil leituras, 20 mil gravações e 20 mil exclusões por dia, e
 50 mil usuários ativos por mês no login. Se um limite estourar, o serviço para até o
 dia ou mês seguinte; não há cobrança.
+
+## Login só por popup
+
+O app entra com Google por uma janela pop-up. O redirecionamento não é usado: ele perde o
+login em navegadores que isolam o armazenamento de terceiros, porque o domínio de login
+(`capivara-chess.firebaseapp.com`) é diferente do site e o GitHub Pages não permite
+fazer proxy de `/__/auth`. Se o navegador bloquear a janela, o app pede para permitir pop-ups.

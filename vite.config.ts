@@ -147,6 +147,8 @@ function seo(): Plugin {
 
 export default defineConfig({
   base,
+  // O Firebase só entra por import() dinâmico; sem isto o Vite o descobre tarde no dev e invalida a página
+  optimizeDeps: { include: ['firebase/app', 'firebase/auth', 'firebase/firestore'] },
   plugins: [
     react(),
     tailwindcss(),
