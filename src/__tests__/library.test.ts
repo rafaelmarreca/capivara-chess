@@ -6,6 +6,7 @@ import { mergeGames } from '../library/merge'
 import type { SavedGame } from '../library/types'
 import { canReuse, noteCount, type GameRepo } from '../library/repo'
 import { createLocalRepo } from '../library/localRepo'
+import { savedDate } from '../library/format'
 
 const lichessGame = `[Event "Rated Blitz game"]
 [White "carol"]
@@ -174,5 +175,23 @@ describe('canReuse', () => {
   })
   it('recusa evals de tamanho errado', () => {
     expect(canReuse(make({ evals: [{ fen: 'x', depth: 1, lines: [] }] }), game)).toBe(false)
+  })
+})
+
+describe('parseGame guarda o texto', () => {
+  it('pgn é o texto da partida', () => {
+    expect(parseGame('1. e4 e5 *').pgn).toBe('1. e4 e5 *')
+  })
+})
+
+describe('savedDate', () => {
+  const now = new Date(2026, 9, 21, 15, 0).getTime()
+  it('hoje, ontem e data curta', () => {
+    expect(savedDate(new Date(2026, 9, 21, 1, 0).getTime(), now)).toBe('hoje')
+    expect(savedDate(new Date(2026, 9, 20, 23, 0).getTime(), now)).toBe('ontem')
+    expect(savedDate(new Date(2026, 9, 12).getTime(), now)).toBe('12 out')
+  })
+  it('ano aparece quando não é o atual', () => {
+    expect(savedDate(new Date(2025, 0, 3).getTime(), now)).toBe('3 jan 2025')
   })
 })

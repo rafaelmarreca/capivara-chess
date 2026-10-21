@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Textarea } from '@heroui/react'
 import type { ParsedGame } from '../types'
 import { parsePgnFile } from '../pgn/parse'
@@ -9,6 +9,8 @@ interface Props {
   onGame: (game: ParsedGame) => void
   /** PGN recebido de fora (ex.: arquivo aberto pelo sistema no app instalado). */
   incoming?: { text: string; id: number }
+  /** Conteúdo abaixo da importação (lista de análises salvas). */
+  children?: ReactNode
 }
 
 function gameTitle(g: ParsedGame) {
@@ -16,7 +18,7 @@ function gameTitle(g: ParsedGame) {
   return `${h.White ?? 'Brancas'} × ${h.Black ?? 'Pretas'}`
 }
 
-export function ImportPanel({ onGame, incoming }: Props) {
+export function ImportPanel({ onGame, incoming, children }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [pasting, setPasting] = useState(false)
@@ -147,6 +149,7 @@ export function ImportPanel({ onGame, incoming }: Props) {
             {error}
           </p>
         )}
+        {children}
       </section>
       <LandingContent />
     </>

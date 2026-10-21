@@ -62,7 +62,7 @@ export function parseGame(pgn: string): ParsedGame {
       clock,
     }
   })
-  return { headers, startFen, moves }
+  return { pgn, headers, startFen, moves }
 }
 
 export function parsePgnFile(text: string): ParsedGame[] {

@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Popover, PopoverContent, PopoverTrigger, Progress, Slider, Tab, Tabs, Tooltip } from '@heroui/react'
 import type { GameAnalysis, ParsedGame } from './types'
 import { runAnalysis } from './analysis/runAnalysis'
+import { buildAnalysis } from './analysis/analyzeGame'
+import { parseGame } from './pgn/parse'
+import { gameId } from './library/gameId'
+import { canReuse } from './library/repo'
+import { useLibrary } from './library/useLibrary'
+import { SavedGamesList } from './components/SavedGamesList'
 import { ImportPanel } from './components/ImportPanel'
 import { BoardView } from './components/BoardView'
 import { EvalBar } from './components/EvalBar'
@@ -23,6 +29,14 @@ function readDepth() {
   } catch {
     return DEFAULT_DEPTH
   }
+}
+
+/** Pedido de análise: abrir uma partida reaproveita a análise salva; mudar a profundidade refaz. */
+interface AnalysisRequest {
+  game: ParsedGame
+  id: string
+  depth: number
+  reuseSaved: boolean
 }
 
 /** Tempo inicial a partir do TimeControl do PGN ("180+2" -> "0:03:00"), no formato do [%clk] do Lichess. */
@@ -51,6 +65,12 @@ export default function App() {
   )
   const abortRef = useRef<AbortController | null>(null)
   const [incoming, setIncoming] = useState<{ text: string; id: number }>()
+  const [request, setRequest] = useState<AnalysisRequest | null>(null)
+  const library = useLibrary()
+  const libraryRef = useRef(library)
+  useEffect(() => {
+    libraryRef.current = library
+  })
 
   // App instalado: arquivo .pgn aberto pelo sistema operacional (File Handling API)
   useEffect(() => {
@@ -59,7 +79,7 @@ export default function App() {
       const file = await files?.[0]?.getFile()
       if (!file) return
       const text = await file.text()
-      setGame(null)
+      closeGame()
       setIncoming({ text, id: Date.now() })
     })
   }, [])
@@ -75,16 +95,30 @@ export default function App() {
   const lineLength = analysis?.moves[ply - 1]?.bestLine.length ?? 0
 
   useEffect(() => {
-    if (!game) return
+    if (!request) return
+    const { game, id, depth, reuseSaved } = request
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
     setAnalysis(null)
     setError(null)
-    runAnalysis(game, depth, (done, t) => setProgress({ done, total: t }), ctrl.signal)
-      .then((a) => {
-        if (!ctrl.signal.aborted) setAnalysis(a)
-      })
+    ;(async () => {
+      const lib = libraryRef.current
+      const saved = reuseSaved ? await lib.repo?.get(id).catch(() => null) : null
+      if (ctrl.signal.aborted) return
+      if (saved && canReuse(saved, game)) {
+        setAnalysis(buildAnalysis(game, saved.evals, saved.depth))
+        return
+      }
+      const result = await runAnalysis(game, depth, (done, t) => setProgress({ done, total: t }), ctrl.signal)
+      if (ctrl.signal.aborted) return
+      setAnalysis(result.analysis)
+      // Só análises completas entram na biblioteca; falha ao salvar não atrapalha a revisão
+      await lib.repo
+        ?.saveAnalysis({ id, pgn: game.pgn, headers: game.headers, depth, evals: result.evals })
+        .then(() => libraryRef.current.refresh())
+        .catch(() => {})
+    })()
       .catch((e: Error) => {
         if (e.name !== 'AbortError') setError(`A análise falhou: ${e.message}`)
       })
@@ -92,7 +126,7 @@ export default function App() {
         if (!ctrl.signal.aborted) setProgress(null)
       })
     return () => ctrl.abort()
-  }, [game, depth])
+  }, [request])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -136,6 +170,7 @@ export default function App() {
 
   const changeDepth = (d: number) => {
     setDepth(d)
+    setRequest((r) => r && { ...r, depth: d, reuseSaved: false })
     try {
       localStorage.setItem('depth', String(d))
     } catch {
@@ -143,18 +178,41 @@ export default function App() {
     }
   }
 
-  const openGame = (g: ParsedGame) => {
+  const openGame = async (g: ParsedGame) => {
+    const id = await gameId(g)
     setGame(g)
+    setRequest({ game: g, id, depth, reuseSaved: true })
     setPly(0)
     setPreview(null)
     setTab('moves')
     setOrientation('white')
   }
 
+  const closeGame = () => {
+    setGame(null)
+    setRequest(null)
+    setProgress(null)
+  }
+
+  const openSaved = async (id: string) => {
+    const saved = await library.repo?.get(id).catch(() => null)
+    if (!saved) return
+    try {
+      await openGame(parseGame(saved.pgn))
+    } catch {
+      setError('Não foi possível abrir esta análise.')
+    }
+  }
+
+  const deleteSaved = async (id: string) => {
+    await library.repo?.remove(id).catch(() => {})
+    await library.refresh()
+  }
+
   const header = (
     <header className="flex items-center gap-3 border-b border-divider px-4 py-3 sm:px-6">
       <button
-        onClick={() => setGame(null)}
+        onClick={closeGame}
         className="flex items-center gap-2 rounded-small font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={24} height={24} className="rounded-[6px]" />
@@ -180,7 +238,7 @@ export default function App() {
                 minValue={10}
                 maxValue={22}
                 step={1}
-                defaultValue={depth}
+                defaultValue={analysis?.depth ?? depth}
                 onChangeEnd={(v) => changeDepth(v as number)}
                 size="sm"
               />
@@ -192,7 +250,7 @@ export default function App() {
           {dark ? <IconSun /> : <IconMoon />}
         </Button>
         {game && (
-          <Button size="sm" variant="flat" onPress={() => setGame(null)}>
+          <Button size="sm" variant="flat" onPress={closeGame}>
             Nova partida
           </Button>
         )}
@@ -205,7 +263,9 @@ export default function App() {
       <>
         {header}
         <main>
-          <ImportPanel onGame={openGame} incoming={incoming} />
+          <ImportPanel onGame={openGame} incoming={incoming}>
+            <SavedGamesList games={library.games} onOpen={openSaved} onDelete={deleteSaved} />
+          </ImportPanel>
         </main>
       </>
     )

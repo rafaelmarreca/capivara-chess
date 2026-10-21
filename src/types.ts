@@ -13,6 +13,7 @@ export interface ParsedMove {
 }
 
 export interface ParsedGame {
+  pgn: string // texto da partida individual, como foi importado
   headers: Record<string, string>
   startFen: string
   moves: ParsedMove[]
