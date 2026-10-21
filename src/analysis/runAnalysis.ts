@@ -2,7 +2,7 @@ import type { GameAnalysis, ParsedGame, PositionEval } from '../types'
 import { StockfishEngine } from '../engine/stockfish'
 import { buildAnalysis, positionsOf, terminalEval } from './analyzeGame'
 
-const CACHE_PREFIX = 'lichess-analyzer:v1:'
+const CACHE_PREFIX = 'capivara:v1:'
 
 function hash(text: string): string {
   let h = 5381

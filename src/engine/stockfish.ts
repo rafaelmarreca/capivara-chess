@@ -1,6 +1,6 @@
 import type { EngineLine, PositionEval, Score } from '../types'
 
-const ENGINE_URL = '/stockfish/stockfish-19-lite-single.js'
+const ENGINE_URL = `${import.meta.env.BASE_URL}stockfish/stockfish-19-lite-single.js`
 
 /** Wrapper UCI mínimo para o Stockfish rodando em Web Worker. */
 export class StockfishEngine {

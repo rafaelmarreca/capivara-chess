@@ -1,15 +1,7 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { HeroUIProvider } from '@heroui/react'
 import './index.css'
-import App from './App.tsx'
+import { Root } from './Root.tsx'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <HeroUIProvider>
-      <main className="min-h-screen bg-background text-foreground">
-        <App />
-      </main>
-    </HeroUIProvider>
-  </StrictMode>,
-)
+// O #root chega com a página inicial pré-renderizada no build (para buscadores e para quem
+// está sem JS). createRoot substitui esse HTML pela mesma marcação, agora interativa.
+createRoot(document.getElementById('root')!).render(<Root />)

@@ -1,11 +1,14 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Textarea } from '@heroui/react'
 import type { ParsedGame } from '../types'
 import { parsePgnFile } from '../pgn/parse'
 import { IconUpload } from './icons'
+import { LandingContent } from './LandingContent'
 
 interface Props {
   onGame: (game: ParsedGame) => void
+  /** PGN recebido de fora (ex.: arquivo aberto pelo sistema no app instalado). */
+  incoming?: { text: string; id: number }
 }
 
 function gameTitle(g: ParsedGame) {
@@ -13,7 +16,7 @@ function gameTitle(g: ParsedGame) {
   return `${h.White ?? 'Brancas'} × ${h.Black ?? 'Pretas'}`
 }
 
-export function ImportPanel({ onGame }: Props) {
+export function ImportPanel({ onGame, incoming }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [pasting, setPasting] = useState(false)
@@ -35,12 +38,17 @@ export function ImportPanel({ onGame }: Props) {
     else setChoices(games)
   }
 
+  useEffect(() => {
+    if (incoming) load(incoming.text)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só reage a um novo arquivo recebido
+  }, [incoming?.id])
+
   const loadFile = async (file?: File) => {
     if (file) load(await file.text())
   }
 
   const loadSample = async () => {
-    const res = await fetch('/samples/exemplo.pgn')
+    const res = await fetch(`${import.meta.env.BASE_URL}samples/exemplo.pgn`)
     load(await res.text())
   }
 
@@ -72,73 +80,76 @@ export function ImportPanel({ onGame }: Props) {
   }
 
   return (
-    <section className="mx-auto w-full max-w-xl px-4 py-16 sm:py-24">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Revise sua partida do Lichess</h1>
-      <p className="mt-3 max-w-prose text-foreground-500">
-        Importe o PGN exportado do Lichess. Cada lance recebe uma classificação, do brilhante à capivarada. A análise
-        roda no seu navegador com o Stockfish.
-      </p>
+    <>
+      <section className="mx-auto w-full max-w-xl px-4 py-16 sm:py-24">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Revise sua partida do Lichess</h1>
+        <p className="mt-3 max-w-prose text-foreground-500">
+          Importe o PGN exportado do Lichess. Cada lance recebe uma classificação, do brilhante à capivarada. A análise
+          roda no seu navegador com o Stockfish.
+        </p>
 
-      <div
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragging(false)
-          loadFile(e.dataTransfer.files[0])
-        }}
-        className={`mt-8 flex flex-col items-center gap-4 rounded-large border-2 border-dashed px-6 py-12 text-center transition-colors ${
-          dragging ? 'border-primary bg-primary/10' : 'border-default-300 bg-content1'
-        }`}
-      >
-        <MiniBoard />
-        <p className="text-foreground-500">Arraste o arquivo .pgn para cá</p>
-        <Button color="primary" startContent={<IconUpload />} onPress={() => fileRef.current?.click()}>
-          Escolher arquivo
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pgn,.txt,application/x-chess-pgn"
-          className="hidden"
-          onChange={(e) => loadFile(e.target.files?.[0])}
-        />
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button variant="flat" onPress={() => setPasting((v) => !v)}>
-          {pasting ? 'Fechar' : 'Colar PGN'}
-        </Button>
-        <Button variant="light" onPress={loadSample}>
-          Abrir partida de exemplo
-        </Button>
-      </div>
-
-      {pasting && (
-        <div className="mt-4 flex flex-col gap-3">
-          <Textarea
-            aria-label="Texto PGN"
-            placeholder={'[Event "Rated Blitz game"]\n…\n1. e4 e5 2. Nf3 …'}
-            minRows={6}
-            value={text}
-            onValueChange={setText}
-            classNames={{ input: 'font-mono text-xs' }}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            loadFile(e.dataTransfer.files[0])
+          }}
+          className={`mt-8 flex flex-col items-center gap-4 rounded-large border-2 border-dashed px-6 py-12 text-center transition-colors ${
+            dragging ? 'border-primary bg-primary/10' : 'border-default-300 bg-content1'
+          }`}
+        >
+          <MiniBoard />
+          <p className="text-foreground-500">Arraste o arquivo .pgn para cá</p>
+          <Button color="primary" startContent={<IconUpload />} onPress={() => fileRef.current?.click()}>
+            Escolher arquivo
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pgn,.txt,application/x-chess-pgn"
+            className="hidden"
+            onChange={(e) => loadFile(e.target.files?.[0])}
           />
-          <Button color="primary" className="self-start" isDisabled={!text.trim()} onPress={() => load(text)}>
-            Analisar partida
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="flat" onPress={() => setPasting((v) => !v)}>
+            {pasting ? 'Fechar' : 'Colar PGN'}
+          </Button>
+          <Button variant="light" onPress={loadSample}>
+            Abrir partida de exemplo
           </Button>
         </div>
-      )}
 
-      {error && (
-        <p role="alert" className="mt-4 rounded-medium bg-danger/10 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      )}
-    </section>
+        {pasting && (
+          <div className="mt-4 flex flex-col gap-3">
+            <Textarea
+              aria-label="Texto PGN"
+              placeholder={'[Event "Rated Blitz game"]\n…\n1. e4 e5 2. Nf3 …'}
+              minRows={6}
+              value={text}
+              onValueChange={setText}
+              classNames={{ input: 'font-mono text-xs' }}
+            />
+            <Button color="primary" className="self-start" isDisabled={!text.trim()} onPress={() => load(text)}>
+              Analisar partida
+            </Button>
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-4 rounded-medium bg-danger/10 px-3 py-2 text-sm text-danger">
+            {error}
+          </p>
+        )}
+      </section>
+      <LandingContent />
+    </>
   )
 }
 

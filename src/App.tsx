@@ -13,6 +13,10 @@ import { IconFirst, IconFlip, IconLast, IconMoon, IconNext, IconPrev, IconSettin
 
 const DEFAULT_DEPTH = 16
 
+type LaunchWindow = Window & {
+  launchQueue?: { setConsumer: (cb: (params: { files?: FileSystemFileHandle[] }) => void) => void }
+}
+
 function readDepth() {
   try {
     return Number(localStorage.getItem('depth')) || DEFAULT_DEPTH
@@ -41,8 +45,24 @@ export default function App() {
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [depth, setDepth] = useState(readDepth)
   const [tab, setTab] = useState<string>('moves')
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [dark, setDark] = useState(
+    // Sem document no pré-render do build: o tema padrão é o escuro
+    () => typeof document === 'undefined' || document.documentElement.classList.contains('dark'),
+  )
   const abortRef = useRef<AbortController | null>(null)
+  const [incoming, setIncoming] = useState<{ text: string; id: number }>()
+
+  // App instalado: arquivo .pgn aberto pelo sistema operacional (File Handling API)
+  useEffect(() => {
+    const queue = (window as LaunchWindow).launchQueue
+    queue?.setConsumer(async ({ files }) => {
+      const file = await files?.[0]?.getFile()
+      if (!file) return
+      const text = await file.text()
+      setGame(null)
+      setIncoming({ text, id: Date.now() })
+    })
+  }, [])
 
   const total = game?.moves.length ?? 0
   const go = useCallback(
@@ -137,8 +157,8 @@ export default function App() {
         onClick={() => setGame(null)}
         className="flex items-center gap-2 rounded-small font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
-        <img src="/favicon.svg" alt="" width={22} height={22} />
-        Revisor
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={24} height={24} className="rounded-[6px]" />
+        Capivara
       </button>
       {game && (
         <p className="hidden min-w-0 flex-1 truncate text-sm text-foreground-500 sm:block">
@@ -184,7 +204,9 @@ export default function App() {
     return (
       <>
         {header}
-        <ImportPanel onGame={openGame} />
+        <main>
+          <ImportPanel onGame={openGame} incoming={incoming} />
+        </main>
       </>
     )
   }
@@ -229,7 +251,7 @@ export default function App() {
   return (
     <>
       {header}
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,600px)_minmax(320px,1fr)]">
+      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,600px)_minmax(320px,1fr)]">
         <section aria-label="Tabuleiro" className="min-w-0">
           {playerStrip(top)}
           <div className="flex gap-2">
@@ -300,7 +322,7 @@ export default function App() {
             </Tabs>
           </div>
         </aside>
-      </div>
+      </main>
     </>
   )
 }

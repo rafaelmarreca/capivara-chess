@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#2D333D"/><rect x="6" y="6" width="10" height="10" fill="#DCE1E6"/><rect x="16" y="16" width="10" height="10" fill="#DCE1E6"/><rect x="16" y="6" width="10" height="10" fill="#7C9CBF"/><rect x="6" y="16" width="10" height="10" fill="#7C9CBF"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#2D333D"/>
+  <!-- cabeça da capivara de perfil, olhando para a direita -->
+  <path d="M9 46 C9 32 17 21 31 20.5 L46 20.5 C52.5 20.5 56.5 23.5 56.5 30 L56.5 34 C56.5 39.5 52.5 42.5 46 43 L39.5 43.5 C35.5 48.5 29 51 21 51 C14 51 9 49.5 9 46 Z" fill="#A68A6D"/>
+  <ellipse cx="22.5" cy="21.5" rx="4.2" ry="3.6" fill="#8C7158"/>
+  <circle cx="37" cy="28.5" r="2.1" fill="#1C2026"/>
+  <ellipse cx="52.6" cy="29.6" rx="1.3" ry="1.9" fill="#5E4B3B"/>
+  <path d="M47 38.5 C49.5 38.8 51.8 38 53.4 36.6" stroke="#5E4B3B" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+</svg>
