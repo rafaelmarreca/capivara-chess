@@ -27,6 +27,8 @@ export interface Library {
   refresh(): Promise<void>
   configured: boolean
   user: AccountUser | null
+  /** Já houve login neste aparelho e a sessão ainda está sendo confirmada (ex.: volta do redirect). */
+  authPending: boolean
   /** Código do erro na volta do redirect de login, se houve. */
   authError: string | null
   signIn(): Promise<'ok' | 'blocked' | 'cancelled'>
@@ -50,6 +52,7 @@ export function useLibrary(): Library {
   const [games, setGames] = useState<SavedGameMeta[]>([])
   const [user, setUser] = useState<AccountUser | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [authPending, setAuthPending] = useState(false)
   const fbRef = useRef<FirebaseModule | null>(null)
   const unwatchRef = useRef<(() => void) | null>(null)
   const flushRef = useRef<() => Promise<void>>(async () => {})
@@ -92,6 +95,7 @@ export function useLibrary(): Library {
       switchingRef.current = switching
       await switching
       if (switchingRef.current === switching) switchingRef.current = null
+      setAuthPending(false)
     })
     return fb
   }, [switchRepo])
@@ -99,7 +103,10 @@ export function useLibrary(): Library {
   useEffect(() => {
     clearLegacyCache()
     switchRepo(createLocalRepo(), false)
-    if (configured && flag()) firebase()
+    if (configured && flag()) {
+      setAuthPending(true)
+      firebase().catch(() => setAuthPending(false))
+    }
     return () => {
       unwatchRef.current?.()
       unwatchRef.current = null
@@ -161,5 +168,5 @@ export function useLibrary(): Library {
     flushRef.current = fn
   }, [])
 
-  return { repo, games, refresh, configured, user, authError, signIn, prepare, signOut, registerFlush, ready }
+  return { repo, games, refresh, configured, user, authPending, authError, signIn, prepare, signOut, registerFlush, ready }
 }
