@@ -31,10 +31,11 @@ body {
 /* Ícones de peça na notação: silhueta da peça do tabuleiro, na cor do texto e na altura das maiúsculas */
 .figurine {
   display: inline-block;
-  width: 1.05em;
-  height: 1.05em;
-  margin: 0 -0.04em 0 -0.12em;
-  vertical-align: -0.17em;
+  width: 1em;
+  height: 1em;
+  margin: 0 -0.03em 0 -0.11em;
+  /* base da peça apoiada na linha de base do texto, topo na altura das maiúsculas */
+  vertical-align: -0.1em;
 }
 
 .figurine svg path,
