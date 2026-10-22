@@ -379,6 +379,7 @@ export default function App() {
   const previewMove = preview != null ? current?.bestLine[preview] : undefined
   const fen = previewMove?.fenAfter ?? (ply === 0 ? game.startFen : game.moves[ply - 1].fenAfter)
   const evalNow = ply === 0 ? analysis?.initialEval : current?.evalAfter
+  const hints = current?.motifs.flatMap((m) => (m.arrow ? [m.arrow] : [])) ?? []
   const h = game.headers
   const top = orientation === 'white' ? 'b' : 'w'
   const playerStrip = (color: 'w' | 'b', height = 'h-10') => {
@@ -501,7 +502,7 @@ export default function App() {
             <div className="flex gap-1.5" style={{ width: 'min(100cqw, calc(100cqh + 1.875rem))' }}>
               <EvalBar score={evalNow} orientation={orientation} />
               <div className="min-w-0 flex-1">
-                <BoardView fen={fen} move={current} orientation={orientation} preview={previewMove} />
+                <BoardView fen={fen} move={current} orientation={orientation} preview={previewMove} hints={hints} />
               </div>
             </div>
           </div>
@@ -540,7 +541,7 @@ export default function App() {
           <div className="flex gap-2">
             <EvalBar score={evalNow} orientation={orientation} />
             <div className="min-w-0 flex-1">
-              <BoardView fen={fen} move={current} orientation={orientation} preview={previewMove} />
+              <BoardView fen={fen} move={current} orientation={orientation} preview={previewMove} hints={hints} />
             </div>
           </div>
           {playerStrip(top === 'w' ? 'b' : 'w')}

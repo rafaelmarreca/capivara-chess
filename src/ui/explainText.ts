@@ -82,6 +82,18 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
       return ['Isso permite ', { san: m.forkSan }, `, um garfo ${list(m.targets.map(withIn))}.`]
     case 'missedFork':
       return [`${Who} ${verb('tinha', 'tinham')} `, { san: m.forkSan }, `, um garfo ${list(m.targets.map(withIn))}.`]
+    case 'castles':
+      return ['Roca: o rei fica protegido e a torre entra em jogo.']
+    case 'develops':
+      return [`Desenvolve ${withArticle(m.piece)} para ${m.square}.`]
+    case 'opensLine':
+      return [m.piece === 'b' ? `Abre a diagonal do bispo de ${m.from}.` : `Abre caminho para a dama em ${m.from}.`]
+    case 'centerPawn':
+      return [`Ocupa o centro com o peão em ${m.square}.`]
+    case 'openFile':
+      return [`${capital(withArticle(m.piece))} ocupa a coluna ${m.semi ? 'semiaberta' : 'aberta'} ${m.file}.`]
+    case 'passedPawn':
+      return [`Cria um peão passado em ${m.square}.`]
     case 'wins':
       if (m.mateIn != null) return [m.mateIn === 1 ? 'Leva a mate no próximo lance.' : `Leva a mate em ${m.mateIn}.`]
       return [`Ganha ${amount(m.gain, 'a dama')}.`]

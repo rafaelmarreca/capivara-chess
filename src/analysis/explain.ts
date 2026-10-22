@@ -1,9 +1,9 @@
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js'
 import type { Classification, PositionEval, Score } from '../types'
 import { VALUES } from './sacrifice'
+import { positionalMotifs, type Arrow, type PositionalMotif } from './positional'
 
-/** O que aconteceu de concreto no lance, confirmado pela linha da engine. */
-export type Motif =
+type TacticalMotif =
   | { kind: 'allowedMate'; mateIn: number; firstSan: string }
   | { kind: 'missedMate'; mateIn: number; bestSan: string }
   | { kind: 'hangs'; piece: PieceSymbol; square: Square; captureSan: string; loss: number; defended: boolean }
@@ -12,6 +12,9 @@ export type Motif =
   | { kind: 'allowedFork'; forkSan: string; targets: PieceSymbol[]; loss: number }
   | { kind: 'missedFork'; forkSan: string; targets: PieceSymbol[]; gain: number }
   | { kind: 'wins'; gain: number; mateIn?: number }
+
+/** O que aconteceu de concreto no lance (tática confirmada pela linha da engine, ou posicional), com a seta a desenhar. */
+export type Motif = (TacticalMotif | PositionalMotif) & { arrow?: Arrow }
 
 export interface ExplainInput {
   fenBefore: string
@@ -32,6 +35,8 @@ const MIN_SWING = 2
 const GOOD: Classification[] = ['brilliant', 'great', 'best', 'excellent']
 // Motivos negativos só onde a classificação concorda que o lance foi ruim
 const BAD: Classification[] = ['mistake', 'blunder', 'miss']
+// Elogio posicional só onde a classificação não diz que o lance foi impreciso ou pior
+const POSITIONAL: Classification[] = ['brilliant', 'great', 'best', 'excellent', 'good', 'book', 'forced']
 
 function play(chess: Chess, uci: string): Move | null {
   try {
@@ -111,6 +116,9 @@ function netLossesAgainst(fen: string, pv: string[], color: Color): { move: Move
   return open
 }
 
+const arrowOf = (m: Move | null | undefined): Arrow | undefined => (m ? { from: m.from, to: m.to } : undefined)
+const moveAt = (fen: string, uci: string | undefined) => (uci ? play(new Chess(fen), uci) : null)
+
 const mateFor = (score: Score | undefined, color: Color): number | null =>
   score?.mate != null && (color === 'w' ? score.mate > 0 : score.mate < 0) ? Math.abs(score.mate) : null
 
@@ -139,8 +147,9 @@ export function detectMotifs({
 
   const mateAgainst = mateFor(reply.score, opp)
   const firstSan = replyPv[0] ? sanAt(fenAfter, replyPv[0]) : null
+  const replyArrow = arrowOf(moveAt(fenAfter, replyPv[0]))
   if (bad && mateAgainst != null && mateFor(best.score, opp) == null && firstSan) {
-    motifs.push({ kind: 'allowedMate', mateIn: mateAgainst, firstSan })
+    motifs.push({ kind: 'allowedMate', mateIn: mateAgainst, firstSan, arrow: replyArrow })
   }
 
   const mateBefore = mateFor(best.score, color)
@@ -154,7 +163,7 @@ export function detectMotifs({
   if (bad && lost >= MIN_SWING && replyPv[0]) {
     const fork = forkTargets(fenAfter, replyPv[0])
     if (fork.length && firstSan) {
-      motifs.push({ kind: 'allowedFork', forkSan: firstSan, targets: fork, loss: lost })
+      motifs.push({ kind: 'allowedFork', forkSan: firstSan, targets: fork, loss: lost, arrow: replyArrow })
     } else {
       // A peça que importa é a mais valiosa perdida e não recuperada, não a primeira capturada
       // (Qxg2 importa pela torre em h1; numa troca de damas antes, a dama não é a perda)
@@ -167,9 +176,10 @@ export function detectMotifs({
         const cap = worst.move
         const square = capturedSquare(cap)
         const defended = new Chess(fenAfter).attackers(square, color).length > 0
-        motifs.push({ kind: 'hangs', piece: cap.captured!, square, captureSan: cap.san, loss: lost, defended })
+        motifs.push({ kind: 'hangs', piece: cap.captured!, square, captureSan: cap.san, loss: lost, defended, arrow: { from: cap.from, to: square } })
       } else if (worst && firstSan) {
-        motifs.push({ kind: 'losesPiece', piece: worst.move.captured!, square: capturedSquare(worst.move), firstSan, loss: lost })
+        const square = capturedSquare(worst.move)
+        motifs.push({ kind: 'losesPiece', piece: worst.move.captured!, square, firstSan, loss: lost, arrow: { from: worst.move.from, to: square } })
       }
     }
   }
@@ -193,6 +203,9 @@ export function detectMotifs({
     if (mate != null) motifs.push({ kind: 'wins', gain: Math.max(0, won), mateIn: mate })
     else if (captures && won >= MIN_SWING) motifs.push({ kind: 'wins', gain: won })
   }
+
+  // Sem nada tático a dizer: o que o lance faz de bom na posição
+  if (!motifs.length && POSITIONAL.includes(classification)) return positionalMotifs(fenBefore, uci)
 
   return motifs.slice(0, 2)
 }

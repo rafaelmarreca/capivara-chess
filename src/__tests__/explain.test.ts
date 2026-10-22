@@ -42,7 +42,9 @@ describe('forkTargets', () => {
 describe('detectMotifs', () => {
   it('peça entregue de graça', () => {
     const m = detectMotifs(input(HANGS, 'd1c3', 'blunder', ev({ cp: 0 }, ['g1f2']), ev({ cp: -300 }, ['b4c3'])))
-    expect(m).toEqual([{ kind: 'hangs', piece: 'n', square: 'c3', captureSan: 'Bxc3', loss: 3, defended: false }])
+    expect(m).toEqual([
+      { kind: 'hangs', piece: 'n', square: 'c3', captureSan: 'Bxc3', loss: 3, defended: false, arrow: { from: 'b4', to: 'c3' } },
+    ])
   })
 
   it('troca equilibrada não é entregar', () => {
@@ -68,7 +70,7 @@ describe('detectMotifs', () => {
   it('mate permitido', () => {
     const fen = '3r2k1/5ppp/8/8/8/8/3R1PPP/6K1 w - - 0 1'
     const m = detectMotifs(input(fen, 'd2a2', 'blunder', ev({ cp: 0 }, ['g1f1']), ev({ mate: -1 }, ['d8d1'])))
-    expect(m[0]).toEqual({ kind: 'allowedMate', mateIn: 1, firstSan: 'Rd1#' })
+    expect(m[0]).toEqual({ kind: 'allowedMate', mateIn: 1, firstSan: 'Rd1#', arrow: { from: 'd8', to: 'd1' } })
   })
 
   it('mate já inevitável não é culpa do lance', () => {
@@ -261,5 +263,82 @@ describe('ganho de material com mate contra', () => {
   it('não diz "ganha" se depois do lance o adversário dá mate', () => {
     // pretas tomam o cavalo, mas as brancas dão mate na sequência
     expect(detectMotifs(input(QUEEN, 'c3d5', 'best', ev({ cp: 900 }, ['c3d5']), ev({ mate: -2 }, ['e8d7'])))).toEqual([])
+  })
+})
+
+describe('motivos posicionais', () => {
+  const quiet = (fen: string, uci: string, cls: Classification = 'good') =>
+    detectMotifs(input(fen, uci, cls, ev({ cp: 0 }, []), ev({ cp: 0 }, [])))
+  const after = (...sans: string[]) => {
+    const c = new Chess()
+    for (const s of sans) c.move(s)
+    return c.fen()
+  }
+
+  it('roque', () => {
+    expect(quiet(after('e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5'), 'e1g1')).toEqual([
+      { kind: 'castles', arrow: { from: 'e1', to: 'g1' } },
+    ])
+  })
+
+  it('desenvolvimento de peça menor nos primeiros lances', () => {
+    expect(quiet(new Chess().fen(), 'g1f3')).toEqual([{ kind: 'develops', piece: 'n', square: 'f3', arrow: { from: 'g1', to: 'f3' } }])
+  })
+
+  it('depois do lance 15 não é "desenvolvimento"', () => {
+    expect(quiet('4k3/8/8/8/8/8/8/4K1N1 w - - 0 20', 'g1f3')).toEqual([])
+  })
+
+  it('lance de peão que abre a diagonal do bispo (como d6 no chess.com)', () => {
+    expect(quiet(after('e4'), 'd7d6')).toEqual([{ kind: 'opensLine', piece: 'b', from: 'c8', to: 'h3', arrow: { from: 'c8', to: 'h3' } }])
+  })
+
+  it('peão no centro', () => {
+    expect(quiet('4k3/8/8/8/8/4P3/8/4K3 w - - 0 1', 'e3e4')).toEqual([{ kind: 'centerPawn', square: 'e4' }])
+  })
+
+  it('torre na coluna aberta', () => {
+    expect(quiet('4k3/pp6/8/8/8/8/PP6/R3K3 w - - 0 30', 'a1d1')).toEqual([
+      { kind: 'openFile', piece: 'r', file: 'd', semi: false, arrow: { from: 'd1', to: 'd8' } },
+    ])
+  })
+
+  it('peão passado criado pelo lance', () => {
+    expect(quiet('4k3/8/8/2p5/3P4/8/8/4K3 w - - 0 30', 'd4c5', 'best')).toEqual([
+      { kind: 'passedPawn', square: 'c5', arrow: { from: 'c5', to: 'c8' } },
+    ])
+  })
+
+  it('lance ruim não recebe elogio posicional', () => {
+    expect(quiet(new Chess().fen(), 'g1f3', 'mistake')).toEqual([])
+    expect(quiet(new Chess().fen(), 'g1f3', 'inaccuracy')).toEqual([])
+  })
+
+  it('peão que já era passado e só andou não é "criado"', () => {
+    expect(quiet('4k3/8/8/8/8/4P3/8/4K3 w - - 0 30', 'e3e4').some((m) => m.kind === 'passedPawn')).toBe(false)
+  })
+
+  it('frases', () => {
+    const say = (m: Motif) => plainText(explainMotif(m, 'you', 'w'))
+    expect(say({ kind: 'castles' })).toBe('Roca: o rei fica protegido e a torre entra em jogo.')
+    expect(say({ kind: 'develops', piece: 'n', square: 'f3' })).toBe('Desenvolve o cavalo para f3.')
+    expect(say({ kind: 'opensLine', piece: 'b', from: 'c8', to: 'h3' })).toBe('Abre a diagonal do bispo de c8.')
+    expect(say({ kind: 'opensLine', piece: 'q', from: 'd1', to: 'h5' })).toBe('Abre caminho para a dama em d1.')
+    expect(say({ kind: 'centerPawn', square: 'e4' })).toBe('Ocupa o centro com o peão em e4.')
+    expect(say({ kind: 'openFile', piece: 'r', file: 'd', semi: false })).toBe('A torre ocupa a coluna aberta d.')
+    expect(say({ kind: 'openFile', piece: 'q', file: 'c', semi: true })).toBe('A dama ocupa a coluna semiaberta c.')
+    expect(say({ kind: 'passedPawn', square: 'c5' })).toBe('Cria um peão passado em c5.')
+  })
+})
+
+describe('setas dos motivos táticos', () => {
+  it('peça entregue: da peça que captura até a peça perdida', () => {
+    const m = detectMotifs(input(HANGS, 'd1c3', 'blunder', ev({ cp: 0 }, ['g1f2']), ev({ cp: -300 }, ['b4c3'])))
+    expect(m[0].arrow).toEqual({ from: 'b4', to: 'c3' })
+  })
+  it('mate permitido: o lance do mate', () => {
+    const fen = '3r2k1/5ppp/8/8/8/8/3R1PPP/6K1 w - - 0 1'
+    const m = detectMotifs(input(fen, 'd2a2', 'blunder', ev({ cp: 0 }, ['g1f1']), ev({ mate: -1 }, ['d8d1'])))
+    expect(m[0].arrow).toEqual({ from: 'd8', to: 'd1' })
   })
 })

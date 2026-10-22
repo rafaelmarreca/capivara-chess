@@ -1,5 +1,6 @@
 import { Chessboard } from 'react-chessboard'
 import type { AnalyzedMove, LineMove } from '../types'
+import type { Arrow } from '../analysis/positional'
 import { CLASS_META } from '../ui/classifications'
 import { ClassBadge } from './ClassBadge'
 
@@ -8,13 +9,16 @@ interface Props {
   move?: AnalyzedMove // lance que levou à posição exibida
   orientation: 'white' | 'black'
   preview?: LineMove // lance da linha sugerida em visualização
+  hints?: Arrow[] // setas da explicação do lance
 }
 
 const PREVIEW_COLOR = '#7C9CBF'
 
 const BEST_ARROW = 'rgba(127, 178, 74, 0.85)'
+// Laranja, como as setas do comentário no chess.com
+const HINT_ARROW = 'rgba(232, 150, 40, 0.85)'
 
-export function BoardView({ fen, move, orientation, preview }: Props) {
+export function BoardView({ fen, move, orientation, preview, hints = [] }: Props) {
   const color = preview ? PREVIEW_COLOR : move ? CLASS_META[move.classification].color : undefined
   const marked = preview ?? move
   const showBest =
@@ -26,6 +30,12 @@ export function BoardView({ fen, move, orientation, preview }: Props) {
   const arrows = showBest
     ? [{ startSquare: move.bestMoveUci!.slice(0, 2), endSquare: move.bestMoveUci!.slice(2, 4), color: BEST_ARROW }]
     : []
+  if (!preview) {
+    for (const h of hints) {
+      const dup = arrows.some((a) => a.startSquare === h.from && a.endSquare === h.to)
+      if (!dup && h.from !== h.to) arrows.push({ startSquare: h.from, endSquare: h.to, color: HINT_ARROW })
+    }
+  }
 
   return (
     <div className="aspect-square w-full overflow-visible rounded-medium">
