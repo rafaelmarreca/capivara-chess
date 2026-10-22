@@ -35,6 +35,7 @@ import { Summary } from './components/Summary'
 import { IconChart, IconFirst, IconFlip, IconLast, IconMoon, IconNext, IconPrev, IconSettings, IconSun } from './components/icons'
 import { MoveStrip } from './components/MoveStrip'
 import { useCompactLayout } from './ui/useCompactLayout'
+import { swipeIntent } from './ui/swipe'
 
 const DEFAULT_DEPTH = 16
 
@@ -91,6 +92,8 @@ export default function App() {
   const library = useLibrary()
   const compact = useCompactLayout()
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [headerOpen, setHeaderOpen] = useState(false) // cabeçalho escondido do celular
+  const touchStartY = useRef<number | null>(null)
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [comment, setComment] = useState('')
   const [canNote, setCanNote] = useState(false) // só depois que a partida existe na biblioteca
@@ -116,6 +119,7 @@ export default function App() {
   const go = useCallback(
     (p: number) => {
       saverRef.current?.flush()
+      setHeaderOpen(false)
       setPreview(null)
       setPly(Math.max(0, Math.min(total, p)))
     },
@@ -169,6 +173,18 @@ export default function App() {
       await saverRef.current?.flush()
     })
   }, [registerFlush])
+
+  // Revisão no celular: o gesto de puxar o cabeçalho não pode virar o "puxar para recarregar" do navegador
+  const compactReview = compact && !!game
+  useEffect(() => {
+    if (!compactReview) return
+    const root = document.documentElement
+    root.style.overscrollBehaviorY = 'none'
+    return () => {
+      root.style.overscrollBehaviorY = ''
+      setHeaderOpen(false)
+    }
+  }, [compactReview])
 
   // Fechar a aba ou trocar de app no celular: grava a nota que ainda está no debounce
   useEffect(() => {
@@ -447,9 +463,36 @@ export default function App() {
   // própria largura (a tela menos a margem e a barra de avaliação); o card do lance fica com o resto.
   if (compact) {
     return (
-      <div className="flex h-dvh flex-col overflow-hidden">
-        {header}
-        <main className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-3 pt-1">
+      <div
+        className="relative flex h-dvh flex-col overflow-hidden"
+        onTouchStart={(e) => (touchStartY.current = e.touches[0].clientY)}
+        onTouchEnd={(e) => {
+          const start = touchStartY.current
+          touchStartY.current = null
+          if (start == null) return
+          const intent = swipeIntent(start, e.changedTouches[0].clientY, window.innerHeight, headerOpen)
+          if (intent) setHeaderOpen(intent === 'open')
+        }}
+      >
+        {/* Cabeçalho escondido: desce por cima ao puxar, sem empurrar o tabuleiro */}
+        {headerOpen && <div className="absolute inset-0 z-20" onClick={() => setHeaderOpen(false)} />}
+        <div
+          className={`absolute inset-x-0 top-0 z-30 bg-background shadow-lg transition-transform duration-200 ${
+            headerOpen ? 'translate-y-0' : '-translate-y-full'
+          }`}
+          aria-hidden={!headerOpen}
+          inert={!headerOpen}
+        >
+          {header}
+        </div>
+        <button
+          aria-label="Mostrar menu"
+          onClick={() => setHeaderOpen(true)}
+          className="mx-auto flex h-4 w-16 shrink-0 items-center justify-center outline-none"
+        >
+          <span className="h-1 w-10 rounded-full bg-default-400" />
+        </button>
+        <main className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-3">
           {playerStrip(top, 'h-8')}
           <div
             className="flex min-h-0 grow-[1000] basis-0 justify-center [container-type:size]"

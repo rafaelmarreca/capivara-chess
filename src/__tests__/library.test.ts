@@ -12,6 +12,7 @@ import { authDomainFor, isFirebaseConfigured } from '../library/firebaseConfig'
 import { migrateLocalToRemote } from '../library/migrate'
 import { analysisFields } from '../library/analysisFields'
 import { nearestScroll, nearestScrollTop } from '../ui/scroll'
+import { swipeIntent } from '../ui/swipe'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -354,5 +355,22 @@ describe('nearestScroll (eixo genérico, usado na faixa horizontal)', () => {
   })
   it('item à esquerda: rola até o começo do item', () => {
     expect(nearestScroll(500, 300, 420, 50)).toBe(420)
+  })
+})
+
+describe('swipeIntent (cabeçalho escondido no celular)', () => {
+  const vh = 800
+  it('puxar para baixo na metade de cima abre', () => {
+    expect(swipeIntent(100, 160, vh, false)).toBe('open')
+  })
+  it('puxar pouco não faz nada', () => {
+    expect(swipeIntent(100, 120, vh, false)).toBeNull()
+  })
+  it('começar na metade de baixo não abre (é a área do card e dos botões)', () => {
+    expect(swipeIntent(500, 600, vh, false)).toBeNull()
+  })
+  it('puxar para cima fecha quando está aberto', () => {
+    expect(swipeIntent(300, 200, vh, true)).toBe('close')
+    expect(swipeIntent(300, 200, vh, false)).toBeNull()
   })
 })
