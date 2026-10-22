@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
 import type { Classification, PositionEval, Score } from '../types'
-import { detectMotifs, forkTargets, materialSwing, type ExplainInput, type Motif } from '../analysis/explain'
+import { capturedSquare, detectMotifs, forkTargets, materialSwing, type ExplainInput, type Motif } from '../analysis/explain'
 import { explainMotif, plainText, subjectFor } from '../ui/explainText'
+import { parseGame } from '../pgn/parse'
+import { buildAnalysis } from '../analysis/analyzeGame'
 
 const ev = (score: Score, pv: string[]): PositionEval => ({ fen: '', depth: 16, lines: [{ score, pv }] })
 
@@ -113,12 +115,10 @@ describe('explainMotif', () => {
   })
 
   it('peça entregue, em 2ª e 3ª pessoa', () => {
-    expect(say(hangs, 'you')).toBe('Você deixou o cavalo em c3 sem defesa: depois de Bxc3, você fica uma peça atrás.')
-    expect(say(hangs, 'w')).toBe(
-      'As brancas deixaram o cavalo em c3 sem defesa: depois de Bxc3, as brancas ficam uma peça atrás.',
-    )
+    expect(say(hangs, 'you')).toBe('Você deixou o cavalo em c3 sem defesa: depois de Bxc3, você perde uma peça.')
+    expect(say(hangs, 'w')).toBe('As brancas deixaram o cavalo em c3 sem defesa: depois de Bxc3, as brancas perdem uma peça.')
     expect(say({ ...hangs, piece: 'q', square: 'd4', defended: true, loss: 6 }, 'you')).toBe(
-      'Você deixou a dama em d4 mal defendida: depois de Bxc3, você fica uma torre atrás.',
+      'Você deixou a dama em d4 mal defendida: depois de Bxc3, você perde uma torre.',
     )
   })
 
@@ -130,7 +130,7 @@ describe('explainMotif', () => {
 
   it('mate permitido e perdido', () => {
     expect(say({ kind: 'allowedMate', mateIn: 1, firstSan: 'Rd1#' }, 'you')).toBe('Depois disso, as pretas dão mate com Rd1#.')
-    expect(say({ kind: 'allowedMate', mateIn: 3, firstSan: 'Qh4+' }, 'w')).toBe(
+    expect(say({ kind: 'allowedMate', mateIn: 3, firstSan: 'Qh4+' }, 'you')).toBe(
       'Depois disso, as pretas dão mate em 3, começando com Qh4+.',
     )
     expect(say({ kind: 'missedMate', mateIn: 1, bestSan: 'Rd8#' }, 'you')).toBe('Você tinha mate com Rd8#.')
@@ -188,7 +188,9 @@ describe('detectMotifs não afirma o que não aconteceu', () => {
 })
 
 describe('peça mais valiosa perdida na linha', () => {
-  it('Blackburne-Shilling: Nxf7 perde a torre em h1, não "o peão em g2"', () => {
+  // Pela linha da engine o cavalo já estava perdido também na melhor (Bxf7+ Kd8 O-O Qxe5): no saldo,
+  // Nxf7 não perde material a mais, então não há frase concreta verdadeira — e nunca "o peão em g2".
+  it('Blackburne-Shilling: Nxf7 não vira "deixou o peão em g2"', () => {
     const chess = new Chess()
     for (const san of ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nd4', 'Nxe5', 'Qg5']) chess.move(san)
     const m = detectMotifs(
@@ -200,12 +202,64 @@ describe('peça mais valiosa perdida na linha', () => {
         ev({ cp: -472 }, 'g5g2 b1c3 g2h1 c4f1 g8h6 f7h6'.split(' ')),
       ),
     )
-    expect(m[0]).toMatchObject({ kind: 'losesPiece', piece: 'r', square: 'h1', firstSan: 'Qxg2' })
+    expect(m.some((x) => 'square' in x && x.square === 'g2')).toBe(false)
   })
 
   it('frase da peça perdida', () => {
     expect(plainText(explainMotif({ kind: 'losesPiece', piece: 'r', square: 'h1', firstSan: 'Qxg2', loss: 3 }, 'you', 'w'))).toBe(
-      'Isso permite Qxg2, e as pretas ganham a torre em h1: você fica uma peça atrás.',
+      'Isso permite Qxg2, e as pretas ganham a torre em h1: no saldo, você perde uma peça.',
     )
+  })
+})
+
+describe('correções da revisão', () => {
+  it('troca de damas antes da perda real: culpa o cavalo, não a dama', () => {
+    const fen = '6k1/5ppp/8/4p3/1b1q4/2N5/5PPP/3QR1K1 w - - 0 1'
+    const m = detectMotifs(input(fen, 'h2h3', 'blunder', ev({ cp: 0 }, 'd1d4 e5d4 c3e2'.split(' ')), ev({ cp: -300 }, 'd4d1 e1d1 b4c3 g2g3'.split(' '))))
+    expect(m[0]).toMatchObject({ kind: 'losesPiece', piece: 'n', square: 'c3' })
+  })
+
+  it('não diz "fica atrás" (o jogador pode continuar à frente)', () => {
+    const hangs: Motif = { kind: 'hangs', piece: 'n', square: 'c3', captureSan: 'Bxc3', loss: 3, defended: false }
+    expect(plainText(explainMotif(hangs, 'you', 'w'))).toBe('Você deixou o cavalo em c3 sem defesa: depois de Bxc3, você perde uma peça.')
+    expect(plainText(explainMotif({ kind: 'losesPiece', piece: 'r', square: 'h1', firstSan: 'Qxg2', loss: 3 }, 'you', 'w'))).toBe(
+      'Isso permite Qxg2, e as pretas ganham a torre em h1: no saldo, você perde uma peça.',
+    )
+  })
+
+  it('promoção no limite da janela é seguida até a retomada', () => {
+    expect(materialSwing('1R5k/8/8/8/8/8/1p6/7K w - - 0 1', 'h1g2 h8h7 g2f3 h7h6 f3e4 b2b1q b8b1'.split(' '), 'w')).toBe(1)
+  })
+
+  it('en passant: a peça capturada estava em outra casa', () => {
+    const chess = new Chess('4k3/8/8/8/4p3/8/3P4/4K3 w - - 0 1')
+    chess.move('d4')
+    expect(capturedSquare(chess.move('exd3'))).toBe('d4')
+  })
+
+  it('o adversário também vira "você" quando é o lado de baixo', () => {
+    // as pretas (em cima) erram; você joga de brancas
+    expect(plainText(explainMotif({ kind: 'losesPiece', piece: 'r', square: 'a8', firstSan: 'Nc7+', loss: 5 }, 'b', 'b'))).toBe(
+      'Isso permite Nc7+, e você ganha a torre em a8: no saldo, as pretas perdem uma torre.',
+    )
+    expect(plainText(explainMotif({ kind: 'allowedMate', mateIn: 1, firstSan: 'Qh7#' }, 'b', 'b'))).toBe(
+      'Depois disso, você dá mate com Qh7#.',
+    )
+  })
+})
+
+describe('retomada só desconta quando é na mesma casa', () => {
+  it('lance que toma outra peça mantém o ganho inteiro', () => {
+    const game = parseGame('[SetUp "1"]\n[FEN "4k3/8/5n2/8/1b5B/P7/8/7K b - - 0 1"]\n\n1... Bxa3 2. Bxf6 *')
+    const e = (cp: number, pv: string[]) => ({ fen: '', depth: 16, lines: [{ score: { cp }, pv }] })
+    const a = buildAnalysis(game, [e(0, ['b4a3']), e(-100, ['h4f6']), e(200, ['a3c5'])], 16)
+    expect(a.moves[1].motifs.find((x) => x.kind === 'wins')).toEqual({ kind: 'wins', gain: 3 })
+  })
+})
+
+describe('ganho de material com mate contra', () => {
+  it('não diz "ganha" se depois do lance o adversário dá mate', () => {
+    // pretas tomam o cavalo, mas as brancas dão mate na sequência
+    expect(detectMotifs(input(QUEEN, 'c3d5', 'best', ev({ cp: 900 }, ['c3d5']), ev({ mate: -2 }, ['e8d7'])))).toEqual([])
   })
 })

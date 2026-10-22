@@ -41,17 +41,32 @@ function play(chess: Chess, uci: string): Move | null {
   }
 }
 
-/** Saldo de material para `color` ao jogar `pv` a partir de `fen` (até 6 plies ou o primeiro lance ilegal). */
-export function materialSwing(fen: string, pv: string[], color: Color): number {
+/** Casa onde estava a peça capturada (no en passant, não é a casa de chegada). */
+export function capturedSquare(m: Move): Square {
+  return m.flags.includes('e') ? ((m.to[0] + m.from[1]) as Square) : m.to
+}
+
+/**
+ * Joga a linha a partir de `fen`, até 6 plies ou o primeiro lance ilegal. No limite, segue
+ * enquanto o lance for captura ou promoção, ou o próximo retomar na mesma casa (troca em andamento).
+ */
+function walk(fen: string, pv: string[], visit: (m: Move, ply: number) => void): void {
   const chess = new Chess(fen)
-  let swing = 0
   for (let i = 0; i < pv.length; i++) {
     const m = play(chess, pv[i])
-    if (!m) break
+    if (!m) return
+    visit(m, i)
+    if (i + 1 >= MAX_PLIES && !m.captured && !m.promotion && pv[i + 1]?.slice(2, 4) !== m.to) return
+  }
+}
+
+/** Saldo de material para `color` ao jogar `pv` a partir de `fen`. */
+export function materialSwing(fen: string, pv: string[], color: Color): number {
+  let swing = 0
+  walk(fen, pv, (m) => {
     const gain = (m.captured ? VALUES[m.captured] : 0) + (m.promotion ? VALUES[m.promotion] - 1 : 0)
     swing += m.color === color ? gain : -gain
-    if (i + 1 >= MAX_PLIES && !m.captured) break
-  }
+  })
   return swing
 }
 
@@ -76,17 +91,24 @@ function sanAt(fen: string, uci: string): string | null {
   return play(new Chess(fen), uci)?.san ?? null
 }
 
-/** Capturas do adversário de `color` na linha, a partir de `fen`, na janela de materialSwing. */
-function capturesAgainst(fen: string, pv: string[], color: Color): { move: Move; ply: number }[] {
-  const chess = new Chess(fen)
-  const out: { move: Move; ply: number }[] = []
-  for (let i = 0; i < pv.length; i++) {
-    const m = play(chess, pv[i])
-    if (!m) break
-    if (m.captured && m.color !== color) out.push({ move: m, ply: i })
-    if (i + 1 >= MAX_PLIES && !m.captured) break
-  }
-  return out
+/**
+ * Capturas do adversário de `color` na linha que não foram compensadas: cada captura de `color`
+ * anula a captura adversária mais valiosa ainda aberta que não valha mais que ela (troca).
+ */
+function netLossesAgainst(fen: string, pv: string[], color: Color): { move: Move; ply: number }[] {
+  const open: { move: Move; ply: number }[] = []
+  walk(fen, pv, (m, ply) => {
+    if (!m.captured) return
+    if (m.color !== color) return void open.push({ move: m, ply })
+    const v = VALUES[m.captured]
+    let pick = -1
+    open.forEach((c, i) => {
+      const cv = VALUES[c.move.captured!]
+      if (cv <= v && (pick < 0 || cv > VALUES[open[pick].move.captured!])) pick = i
+    })
+    if (pick >= 0) open.splice(pick, 1)
+  })
+  return open
 }
 
 const mateFor = (score: Score | undefined, color: Color): number | null =>
@@ -134,18 +156,20 @@ export function detectMotifs({
     if (fork.length && firstSan) {
       motifs.push({ kind: 'allowedFork', forkSan: firstSan, targets: fork, loss: lost })
     } else {
-      // A peça que importa é a mais valiosa perdida, não a primeira (Qxg2 importa pela torre em h1)
-      const caps = capturesAgainst(fenAfter, replyPv, color)
+      // A peça que importa é a mais valiosa perdida e não recuperada, não a primeira capturada
+      // (Qxg2 importa pela torre em h1; numa troca de damas antes, a dama não é a perda)
+      const caps = netLossesAgainst(fenAfter, replyPv, color)
       const worst = caps.reduce<(typeof caps)[number] | null>(
         (a, c) => (!a || VALUES[c.move.captured!] > VALUES[a.move.captured!] ? c : a),
         null,
       )
       if (worst && worst.ply === 0) {
         const cap = worst.move
-        const defended = new Chess(fenAfter).attackers(cap.to, color).length > 0
-        motifs.push({ kind: 'hangs', piece: cap.captured!, square: cap.to, captureSan: cap.san, loss: lost, defended })
+        const square = capturedSquare(cap)
+        const defended = new Chess(fenAfter).attackers(square, color).length > 0
+        motifs.push({ kind: 'hangs', piece: cap.captured!, square, captureSan: cap.san, loss: lost, defended })
       } else if (worst && firstSan) {
-        motifs.push({ kind: 'losesPiece', piece: worst.move.captured!, square: worst.move.to, firstSan, loss: lost })
+        motifs.push({ kind: 'losesPiece', piece: worst.move.captured!, square: capturedSquare(worst.move), firstSan, loss: lost })
       }
     }
   }
@@ -161,7 +185,8 @@ export function detectMotifs({
     }
   }
 
-  if (GOOD.includes(classification)) {
+  // Material "ganho" numa linha que leva a mate contra não é ganho
+  if (GOOD.includes(classification) && mateAgainst == null) {
     const mate = mateFor(reply.score, color)
     const captures = new Chess(fenBefore).get(uci.slice(2, 4) as Square)?.color === opp
     const won = swingPlayed - previousCaptured

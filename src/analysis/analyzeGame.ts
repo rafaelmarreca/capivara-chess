@@ -133,7 +133,8 @@ export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: nu
         classification,
         before,
         after: evals[i + 1],
-        previousCaptured: capturedValue(game.moves[i - 1]),
+        // Só é retomada se for na mesma casa; tomar outra peça é ganho inteiro
+        previousCaptured: game.moves[i - 1]?.to === move.to ? capturedValue(game.moves[i - 1]) : 0,
       }),
     })
   })

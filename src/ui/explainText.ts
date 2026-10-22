@@ -45,9 +45,11 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
   const you = subject === 'you'
   const who = you ? 'você' : colorName(moveColor)
   const Who = capital(who)
-  const opponent = colorName(moveColor === 'w' ? 'b' : 'w')
+  // O adversário de quem está em cima é o lado de baixo: "você"
+  const opponent = you ? colorName(moveColor === 'w' ? 'b' : 'w') : 'você'
   // 2ª pessoa no singular ("você deixou"), 3ª no plural ("as brancas deixaram")
   const verb = (sing: string, plural: string) => (you ? sing : plural)
+  const oppVerb = (sing: string, plural: string) => (you ? plural : sing)
   const mateTail = (n: number, san: string): Segment[] =>
     n === 1 ? ['mate com ', { san }, '.'] : [`mate em ${n}, começando com `, { san }, '.']
 
@@ -57,14 +59,14 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
       return [
         `${Who} ${verb('deixou', 'deixaram')} ${withArticle(m.piece)} em ${m.square} ${how}: depois de `,
         { san: m.captureSan },
-        `, ${who} ${verb('fica', 'ficam')} ${amount(m.loss)} atrás.`,
+        `, ${who} ${verb('perde', 'perdem')} ${amount(m.loss)}.`,
       ]
     }
     case 'losesPiece':
       return [
         'Isso permite ',
         { san: m.firstSan },
-        `, e ${opponent} ganham ${withArticle(m.piece)} em ${m.square}: ${who} ${verb('fica', 'ficam')} ${amount(m.loss)} atrás.`,
+        `, e ${opponent} ${oppVerb('ganha', 'ganham')} ${withArticle(m.piece)} em ${m.square}: no saldo, ${who} ${verb('perde', 'perdem')} ${amount(m.loss)}.`,
       ]
     case 'missedCapture':
       return [
@@ -73,7 +75,7 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
         '.',
       ]
     case 'allowedMate':
-      return [`Depois disso, ${opponent} dão `, ...mateTail(m.mateIn, m.firstSan)]
+      return [`Depois disso, ${opponent} ${oppVerb('dá', 'dão')} `, ...mateTail(m.mateIn, m.firstSan)]
     case 'missedMate':
       return [`${Who} ${verb('tinha', 'tinham')} `, ...mateTail(m.mateIn, m.bestSan)]
     case 'allowedFork':
