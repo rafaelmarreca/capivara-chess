@@ -11,6 +11,7 @@ import { createNoteSaver } from '../library/noteSaver'
 import { authDomainFor, isFirebaseConfigured } from '../library/firebaseConfig'
 import { migrateLocalToRemote } from '../library/migrate'
 import { analysisFields } from '../library/analysisFields'
+import { nearestScrollTop } from '../ui/scroll'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -331,5 +332,18 @@ describe('authDomainFor', () => {
   })
   it('em qualquer outro host usa o domínio do Firebase', () => {
     expect(authDomainFor('localhost')).toBe('capivara-chess.firebaseapp.com')
+  })
+})
+
+describe('nearestScrollTop (lista de lances rola sozinha, sem mexer na página)', () => {
+  // contêiner de 100px de altura; posições relativas ao conteúdo do contêiner
+  it('item visível: não rola', () => {
+    expect(nearestScrollTop({ scrollTop: 0, height: 100 }, { top: 40, height: 20 })).toBe(0)
+  })
+  it('item abaixo: rola o mínimo para mostrar a base', () => {
+    expect(nearestScrollTop({ scrollTop: 0, height: 100 }, { top: 150, height: 20 })).toBe(70)
+  })
+  it('item acima: rola até o topo do item', () => {
+    expect(nearestScrollTop({ scrollTop: 200, height: 100 }, { top: 120, height: 20 })).toBe(120)
   })
 })

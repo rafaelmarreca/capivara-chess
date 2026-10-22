@@ -3,6 +3,7 @@ import type { AnalyzedMove, Classification, ParsedMove } from '../types'
 import { ClassBadge } from './ClassBadge'
 import { San } from './San'
 import { CLASS_META } from '../ui/classifications'
+import { scrollWithinParent } from '../ui/scroll'
 
 const HIGHLIGHT: Classification[] = ['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']
 
@@ -17,7 +18,7 @@ interface Props {
 export function MoveList({ moves, ply, onSelect, notes }: Props) {
   const activeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest' })
+    if (activeRef.current) scrollWithinParent(activeRef.current)
   }, [ply])
 
   // Agrupa por número do lance; se a partida começa com as pretas, a 1ª linha só tem o lance preto
