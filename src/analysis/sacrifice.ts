@@ -1,6 +1,6 @@
 import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js'
 
-const VALUES: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 }
+export const VALUES: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 }
 
 /** Quanto material cada peça de `color` perderia se capturada agora (troca estática simplificada). */
 function hangingPieces(chess: Chess, color: Color): Map<Square, number> {
