@@ -443,14 +443,18 @@ export default function App() {
     <Summary game={game} analysis={analysis} comment={comment} onCommentChange={canNote ? changeComment : undefined} />
   )
 
-  // Celular em retrato: tudo numa tela (100dvh), sem rolar a página. O tabuleiro ocupa o que sobra.
+  // Celular em retrato: tudo numa tela (100dvh), sem rolar a página. O tabuleiro cresce primeiro, até a
+  // própria largura (a tela menos a margem e a barra de avaliação); o card do lance fica com o resto.
   if (compact) {
     return (
       <div className="flex h-dvh flex-col overflow-hidden">
         {header}
         <main className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-3 pt-1">
           {playerStrip(top, 'h-8')}
-          <div className="flex min-h-0 flex-1 justify-center [container-type:size]">
+          <div
+            className="flex min-h-0 grow-[1000] basis-0 justify-center [container-type:size]"
+            style={{ maxHeight: 'calc(100vw - 3.375rem)' }}
+          >
             <div className="flex gap-1.5" style={{ width: 'min(100cqw, calc(100cqh + 1.875rem))' }}>
               <EvalBar score={evalNow} orientation={orientation} />
               <div className="min-w-0 flex-1">
@@ -460,8 +464,8 @@ export default function App() {
           </div>
           {playerStrip(top === 'w' ? 'b' : 'w', 'h-8')}
           <MoveStrip moves={analysis?.moves ?? game.moves} ply={ply} onSelect={go} />
-          {/* Altura fixa: progresso, erro e card ocupam o mesmo espaço, e o tabuleiro não se mexe */}
-          <div className="h-32 shrink-0 overflow-y-auto">
+          {/* Progresso, erro e card ocupam o mesmo espaço (que só depende da tela): o tabuleiro não se mexe */}
+          <div className="min-h-32 grow basis-32 overflow-y-auto">
             {errorBox}
             {progressBar ? <div className="rounded-medium bg-content2 p-3">{progressBar}</div> : moveDetail(true)}
           </div>
