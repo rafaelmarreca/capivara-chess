@@ -158,3 +158,54 @@ describe('explainMotif', () => {
     expect(explainMotif(hangs, 'you', 'w')).toContainEqual({ san: 'Bxc3' })
   })
 })
+
+describe('detectMotifs não afirma o que não aconteceu', () => {
+  it('troca cortada no meio da janela é contada até o fim', () => {
+    const fen = '3rk3/p6p/8/8/8/8/P2R3P/4K3 w - - 0 1'
+    expect(materialSwing(fen, ['a2a3', 'a7a6', 'h2h3', 'h7h6', 'a3a4', 'd8d2', 'e1d2'], 'w')).toBe(0)
+  })
+
+  it('lance bom não recebe motivo negativo', () => {
+    expect(detectMotifs(input(HANGS, 'd1c3', 'good', ev({ cp: 0 }, ['g1f2']), ev({ cp: -300 }, ['b4c3'])))).toEqual([])
+  })
+
+  it('só diz "fica atrás" se o saldo real for negativo, não só pior que a melhor linha', () => {
+    // a melhor linha ganharia a dama; a jogada não perde nada de fato
+    const m = detectMotifs(input(QUEEN, 'e1e2', 'blunder', ev({ cp: 900 }, ['c3d5']), ev({ cp: 0 }, ['d5d4'])))
+    expect(m.some((x) => x.kind === 'hangs')).toBe(false)
+  })
+
+  it('retomada não "ganha" material', () => {
+    // as pretas acabaram de tomar o cavalo em c3; bxc3 só recupera a peça
+    const fen = '4k3/8/8/8/8/2b5/1P6/6K1 w - - 0 1'
+    expect(detectMotifs({ ...input(fen, 'b2c3', 'best', ev({ cp: 0 }, ['b2c3']), ev({ cp: 0 }, ['e8d7'])), previousCaptured: 3 })).toEqual([])
+  })
+
+  it('lance que não captura não "ganha" material', () => {
+    const fen = '4k3/8/8/3q4/8/2N5/8/4K3 w - - 0 1'
+    expect(detectMotifs(input(fen, 'e1f2', 'best', ev({ cp: 900 }, ['e1f2']), ev({ cp: 900 }, ['d5e4', 'c3e4'])))).toEqual([])
+  })
+})
+
+describe('peça mais valiosa perdida na linha', () => {
+  it('Blackburne-Shilling: Nxf7 perde a torre em h1, não "o peão em g2"', () => {
+    const chess = new Chess()
+    for (const san of ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nd4', 'Nxe5', 'Qg5']) chess.move(san)
+    const m = detectMotifs(
+      input(
+        chess.fen(),
+        'e5f7',
+        'blunder',
+        ev({ cp: -72 }, 'c4f7 e8d8 e1g1 g5e5 d2d3 e5f6'.split(' ')),
+        ev({ cp: -472 }, 'g5g2 b1c3 g2h1 c4f1 g8h6 f7h6'.split(' ')),
+      ),
+    )
+    expect(m[0]).toMatchObject({ kind: 'losesPiece', piece: 'r', square: 'h1', firstSan: 'Qxg2' })
+  })
+
+  it('frase da peça perdida', () => {
+    expect(plainText(explainMotif({ kind: 'losesPiece', piece: 'r', square: 'h1', firstSan: 'Qxg2', loss: 3 }, 'you', 'w'))).toBe(
+      'Isso permite Qxg2, e as pretas ganham a torre em h1: você fica uma peça atrás.',
+    )
+  })
+})

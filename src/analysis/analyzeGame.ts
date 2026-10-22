@@ -1,10 +1,11 @@
-import { Chess } from 'chess.js'
+import { Chess, type Square } from 'chess.js'
 import type {
   AnalyzedMove,
   Classification,
   GameAnalysis,
   LineMove,
   ParsedGame,
+  ParsedMove,
   PlayerSummary,
   PositionEval,
   Score,
@@ -12,7 +13,8 @@ import type {
 import { gameAccuracy, moveAccuracy } from './accuracy'
 import { isBookPosition, openingName } from './book'
 import { classifyMove } from './classify'
-import { isSacrifice } from './sacrifice'
+import { isSacrifice, VALUES } from './sacrifice'
+import { detectMotifs } from './explain'
 import { CHECKMATE_CP, winPercentFor, winPercentWhite } from './winPercent'
 
 export const CLASSIFICATIONS: Classification[] = [
@@ -67,6 +69,12 @@ const isMateFor = (score: Score | undefined, color: 'w' | 'b') =>
 const emptyCounts = () =>
   Object.fromEntries(CLASSIFICATIONS.map((c) => [c, 0])) as Record<Classification, number>
 
+/** Valor da peça capturada no lance (0 se não capturou). */
+function capturedValue(move?: ParsedMove): number {
+  const piece = move && new Chess(move.fenBefore).get(move.to as Square)
+  return piece && piece.color !== move.color ? VALUES[piece.type] : 0
+}
+
 /** Combina a partida com as avaliações de cada posição (n+1) e gera a análise completa. */
 export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: number): GameAnalysis {
   const scoreAt = (i: number): Score => evals[i].lines[0]?.score ?? { cp: 0 }
@@ -117,6 +125,16 @@ export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: nu
       bestMoveSan: bestLine[0]?.san,
       bestLine,
       opening: opening?.name,
+      motifs: detectMotifs({
+        fenBefore: move.fenBefore,
+        fenAfter: move.fenAfter,
+        uci: move.uci,
+        color: move.color,
+        classification,
+        before,
+        after: evals[i + 1],
+        previousCaptured: capturedValue(game.moves[i - 1]),
+      }),
     })
   })
 

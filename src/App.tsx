@@ -437,6 +437,7 @@ export default function App() {
                     move={current}
                     initialEval={analysis.initialEval}
                     opening={current?.opening}
+                    orientation={orientation}
                     previewIndex={preview}
                     onPreview={setPreview}
                     note={notes[ply]}

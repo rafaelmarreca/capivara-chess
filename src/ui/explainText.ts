@@ -60,6 +60,12 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
         `, ${who} ${verb('fica', 'ficam')} ${amount(m.loss)} atrás.`,
       ]
     }
+    case 'losesPiece':
+      return [
+        'Isso permite ',
+        { san: m.firstSan },
+        `, e ${opponent} ganham ${withArticle(m.piece)} em ${m.square}: ${who} ${verb('fica', 'ficam')} ${amount(m.loss)} atrás.`,
+      ]
     case 'missedCapture':
       return [
         `${Who} ${verb('perdeu', 'perderam')} a chance de capturar ${withArticle(m.piece)} em ${m.square} com `,

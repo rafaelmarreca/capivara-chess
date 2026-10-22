@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { parsePgnFile, splitPgn } from '../pgn/parse'
+import { parseGame, parsePgnFile, splitPgn } from '../pgn/parse'
 import { winPercentFor, winPercentWhite, formatScore } from '../analysis/winPercent'
 import { moveAccuracy, gameAccuracy } from '../analysis/accuracy'
 import { classifyMove, type ClassifyInput } from '../analysis/classify'
@@ -138,5 +138,15 @@ describe('parseInfo', () => {
   it('converte para o ponto de vista das brancas', () => {
     const l = 'info depth 12 seldepth 18 multipv 2 score cp 35 nodes 1 nps 1 pv e7e5 g1f3'
     expect(parseInfo(l, false)).toMatchObject({ depth: 12, multipv: 2, score: { cp: -35 }, pv: ['e7e5', 'g1f3'] })
+  })
+})
+
+describe('buildAnalysis com motivos', () => {
+  it('preenche motifs de cada lance a partir dos evals', () => {
+    const game = parseGame('[SetUp "1"]\n[FEN "4k3/8/8/8/1b6/8/8/3N2K1 w - - 0 1"]\n\n1. Nc3 Bxc3 *')
+    const ev = (cp: number, pv: string[]) => ({ fen: '', depth: 16, lines: [{ score: { cp }, pv }] })
+    const a = buildAnalysis(game, [ev(0, ['g1f2']), ev(-300, ['b4c3']), ev(-300, ['g1f2'])], 16)
+    expect(a.moves[0].motifs[0]?.kind).toBe('hangs')
+    expect(Array.isArray(a.moves[1].motifs)).toBe(true)
   })
 })

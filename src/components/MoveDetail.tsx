@@ -5,11 +5,14 @@ import { ClassBadge } from './ClassBadge'
 import { LineChips } from './LineChips'
 import { San } from './San'
 import { NoteField } from './NoteField'
+import { explainMotif, subjectFor } from '../ui/explainText'
 
 interface Props {
   move?: AnalyzedMove
   initialEval?: Score
   opening?: string
+  /** Lado de baixo do tabuleiro: é o "você" das explicações. */
+  orientation: 'white' | 'black'
   previewIndex: number | null
   onPreview: (index: number | null) => void
   /** Sem onNoteChange o campo de nota não aparece (partida ainda não salva). */
@@ -19,7 +22,7 @@ interface Props {
 
 const NO_SUGGESTION = ['book', 'best', 'brilliant', 'great', 'forced']
 
-export function MoveDetail({ move, initialEval, opening, previewIndex, onPreview, note, onNoteChange }: Props) {
+export function MoveDetail({ move, initialEval, opening, orientation, previewIndex, onPreview, note, onNoteChange }: Props) {
   if (!move) {
     return (
       <div className="rounded-medium bg-content2 p-4">
@@ -49,6 +52,13 @@ export function MoveDetail({ move, initialEval, opening, previewIndex, onPreview
         <span className="rounded-small bg-content3 px-2 py-0.5 text-sm font-semibold">{formatScore(move.evalAfter)}</span>
       </div>
       {move.classification === 'book' && opening && <p className="mt-2 text-sm text-foreground-500">{opening}</p>}
+      {move.motifs.map((m, i) => (
+        <p key={i} className="mt-2 text-sm leading-relaxed">
+          {explainMotif(m, subjectFor(move.color, orientation), move.color).map((s, j) =>
+            typeof s === 'string' ? <span key={j}>{s}</span> : <San key={j} san={s.san} />,
+          )}
+        </p>
+      ))}
 
       {move.bestLine.length > 0 && (
         <div className="mt-3">
