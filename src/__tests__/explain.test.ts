@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { Chess } from 'chess.js'
 import type { Classification, PositionEval, Score } from '../types'
-import { detectMotifs, forkTargets, materialSwing, type ExplainInput } from '../analysis/explain'
+import { detectMotifs, forkTargets, materialSwing, type ExplainInput, type Motif } from '../analysis/explain'
+import { explainMotif, plainText, subjectFor } from '../ui/explainText'
 
 const ev = (score: Score, pv: string[]): PositionEval => ({ fen: '', depth: 16, lines: [{ score, pv }] })
 
@@ -98,5 +99,62 @@ describe('detectMotifs', () => {
     expect(detectMotifs(input(HANGS, 'd1c3', 'blunder', ev({ cp: 0 }, []), ev({ cp: -300 }, [])))).toEqual([])
     expect(detectMotifs(input(HANGS, 'd1c3', 'blunder', ev({ cp: 0 }, ['a1a1']), ev({ cp: -300 }, ['h8h1'])))).toEqual([])
     expect(detectMotifs({ ...input(HANGS, 'd1c3', 'blunder', ev({ cp: 0 }, []), ev({ cp: 0 }, [])), after: { fen: '', depth: 0, lines: [] } })).toEqual([])
+  })
+})
+
+describe('explainMotif', () => {
+  const say = (m: Motif, subject: 'you' | 'w' | 'b', color: 'w' | 'b' = 'w') => plainText(explainMotif(m, subject, color))
+  const hangs: Motif = { kind: 'hangs', piece: 'n', square: 'c3', captureSan: 'Bxc3', loss: 3, defended: false }
+
+  it('você = lado de baixo do tabuleiro', () => {
+    expect(subjectFor('w', 'white')).toBe('you')
+    expect(subjectFor('w', 'black')).toBe('w')
+    expect(subjectFor('b', 'black')).toBe('you')
+  })
+
+  it('peça entregue, em 2ª e 3ª pessoa', () => {
+    expect(say(hangs, 'you')).toBe('Você deixou o cavalo em c3 sem defesa: depois de Bxc3, você fica uma peça atrás.')
+    expect(say(hangs, 'w')).toBe(
+      'As brancas deixaram o cavalo em c3 sem defesa: depois de Bxc3, as brancas ficam uma peça atrás.',
+    )
+    expect(say({ ...hangs, piece: 'q', square: 'd4', defended: true, loss: 6 }, 'you')).toBe(
+      'Você deixou a dama em d4 mal defendida: depois de Bxc3, você fica uma torre atrás.',
+    )
+  })
+
+  it('captura perdida', () => {
+    expect(say({ kind: 'missedCapture', piece: 'q', square: 'd5', bestSan: 'Nxd5', gain: 9 }, 'you')).toBe(
+      'Você perdeu a chance de capturar a dama em d5 com Nxd5.',
+    )
+  })
+
+  it('mate permitido e perdido', () => {
+    expect(say({ kind: 'allowedMate', mateIn: 1, firstSan: 'Rd1#' }, 'you')).toBe('Depois disso, as pretas dão mate com Rd1#.')
+    expect(say({ kind: 'allowedMate', mateIn: 3, firstSan: 'Qh4+' }, 'w')).toBe(
+      'Depois disso, as pretas dão mate em 3, começando com Qh4+.',
+    )
+    expect(say({ kind: 'missedMate', mateIn: 1, bestSan: 'Rd8#' }, 'you')).toBe('Você tinha mate com Rd8#.')
+    expect(say({ kind: 'missedMate', mateIn: 2, bestSan: 'Qg7+' }, 'b', 'b')).toBe(
+      'As pretas tinham mate em 2, começando com Qg7+.',
+    )
+  })
+
+  it('garfos', () => {
+    expect(say({ kind: 'allowedFork', forkSan: 'Nc2+', targets: ['k', 'r'], loss: 5 }, 'you')).toBe(
+      'Isso permite Nc2+, um garfo no rei e na torre.',
+    )
+    expect(say({ kind: 'missedFork', forkSan: 'Nc7+', targets: ['k', 'r', 'q'], gain: 5 }, 'you')).toBe(
+      'Você tinha Nc7+, um garfo no rei, na torre e na dama.',
+    )
+  })
+
+  it('lance bom', () => {
+    expect(say({ kind: 'wins', gain: 9 }, 'you')).toBe('Ganha a dama.')
+    expect(say({ kind: 'wins', gain: 1 }, 'you')).toBe('Ganha um peão.')
+    expect(say({ kind: 'wins', gain: 0, mateIn: 2 }, 'you')).toBe('Leva a mate em 2.')
+  })
+
+  it('lance vira segmento SAN para a notação figurada', () => {
+    expect(explainMotif(hangs, 'you', 'w')).toContainEqual({ san: 'Bxc3' })
   })
 })
