@@ -93,7 +93,15 @@ export function AccountButton({ library, onSignedOut }: Props) {
             onPointerEnter={library.prepare}
             onFocus={library.prepare}
           >
-            {library.authPending ? 'Entrando…' : shownError ? 'Tentar de novo' : 'Entrar com Google'}
+            {library.authPending ? (
+              'Entrando…'
+            ) : shownError ? (
+              'Tentar de novo'
+            ) : (
+              <>
+                Entrar<span className="max-sm:hidden"> com Google</span>
+              </>
+            )}
           </Button>
         </Tooltip>
       )}

@@ -18,11 +18,13 @@ interface Props {
   /** Sem onNoteChange o campo de nota não aparece (partida ainda não salva). */
   note?: string
   onNoteChange?: (text: string) => void
+  /** Celular: card mais enxuto e nota recolhível. */
+  compact?: boolean
 }
 
 const NO_SUGGESTION = ['book', 'best', 'brilliant', 'great', 'forced']
 
-export function MoveDetail({ move, initialEval, opening, orientation, previewIndex, onPreview, note, onNoteChange }: Props) {
+export function MoveDetail({ move, initialEval, opening, orientation, previewIndex, onPreview, note, onNoteChange, compact }: Props) {
   if (!move) {
     return (
       <div className="rounded-medium bg-content2 p-4">
@@ -38,7 +40,7 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
   const playedWasBest = NO_SUGGESTION.includes(move.classification)
 
   return (
-    <div className="rounded-medium bg-content2 p-4">
+    <div className={`rounded-medium bg-content2 ${compact ? 'p-3' : 'p-4'}`}>
       <div className="flex items-center gap-3">
         <ClassBadge classification={move.classification} size={28} />
         <p className="flex-1 font-semibold" style={{ color: meta.color }}>
@@ -87,8 +89,9 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
       )}
 
       {onNoteChange && (
-        <div className="mt-4">
+        <div className={compact ? 'mt-3' : 'mt-4'}>
           <NoteField
+            collapsible={compact}
             label="Sua nota"
             placeholder="O que você pensou neste lance?"
             value={note ?? ''}

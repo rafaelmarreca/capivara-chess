@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, Popover, PopoverContent, PopoverTrigger, Progress, Slider, Tab, Tabs, Tooltip } from '@heroui/react'
+import {
+  Button,
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerHeader,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Progress,
+  Slider,
+  Tab,
+  Tabs,
+  Tooltip,
+} from '@heroui/react'
 import type { GameAnalysis, ParsedGame } from './types'
 import { runAnalysis } from './analysis/runAnalysis'
 import { buildAnalysis } from './analysis/analyzeGame'
@@ -18,7 +32,9 @@ import { EvalGraph } from './components/EvalGraph'
 import { MoveList } from './components/MoveList'
 import { MoveDetail } from './components/MoveDetail'
 import { Summary } from './components/Summary'
-import { IconFirst, IconFlip, IconLast, IconMoon, IconNext, IconPrev, IconSettings, IconSun } from './components/icons'
+import { IconChart, IconFirst, IconFlip, IconLast, IconMoon, IconNext, IconPrev, IconSettings, IconSun } from './components/icons'
+import { MoveStrip } from './components/MoveStrip'
+import { useCompactLayout } from './ui/useCompactLayout'
 
 const DEFAULT_DEPTH = 16
 
@@ -73,6 +89,8 @@ export default function App() {
   const [incoming, setIncoming] = useState<{ text: string; id: number }>()
   const [request, setRequest] = useState<AnalysisRequest | null>(null)
   const library = useLibrary()
+  const compact = useCompactLayout()
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [comment, setComment] = useState('')
   const [canNote, setCanNote] = useState(false) // só depois que a partida existe na biblioteca
@@ -278,13 +296,14 @@ export default function App() {
   }
 
   const header = (
-    <header className="flex items-center gap-3 border-b border-divider px-4 py-3 sm:px-6">
+    <header className={`flex items-center gap-3 border-b border-divider px-4 sm:px-6 ${compact && game ? 'py-1.5' : 'py-3'}`}>
       <button
         onClick={closeGame}
         className="flex items-center gap-2 rounded-small font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={24} height={24} className="rounded-[6px]" />
-        Capivara Chess
+        {/* Com partida aberta no celular, só o logo: o resto do cabeçalho precisa da largura */}
+        <span className={game ? 'max-sm:sr-only' : undefined}>Capivara Chess</span>
       </button>
       {game && (
         <p className="hidden min-w-0 flex-1 truncate text-sm text-foreground-500 sm:block">
@@ -346,7 +365,7 @@ export default function App() {
   const evalNow = ply === 0 ? analysis?.initialEval : current?.evalAfter
   const h = game.headers
   const top = orientation === 'white' ? 'b' : 'w'
-  const playerStrip = (color: 'w' | 'b') => {
+  const playerStrip = (color: 'w' | 'b', height = 'h-10') => {
     const name = color === 'w' ? (h.White ?? 'Brancas') : (h.Black ?? 'Pretas')
     const elo = color === 'w' ? h.WhiteElo : h.BlackElo
     const lastOwn = [...game.moves.slice(0, ply)].reverse().find((m) => m.color === color)
@@ -354,7 +373,7 @@ export default function App() {
     const accuracy = analysis?.[color === 'w' ? 'white' : 'black'].accuracy
     return (
       // Altura fixa: o relógio aparecer não pode empurrar o tabuleiro
-      <div className="flex h-10 items-center gap-2 text-sm">
+      <div className={`flex ${height} shrink-0 items-center gap-2 text-sm`}>
         <span
           className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-foreground/20"
           style={{ background: color === 'w' ? '#ECEEF0' : '#3A404B' }}
@@ -377,6 +396,94 @@ export default function App() {
     </Tooltip>
   )
 
+  const navButtons = (
+    <>
+      {navButton('Início', <IconFirst />, () => go(0), ply === 0)}
+      {navButton('Anterior', <IconPrev />, () => go(ply - 1), ply === 0)}
+      {navButton('Próximo', <IconNext />, () => go(ply + 1), ply === total)}
+      {navButton('Fim', <IconLast />, () => go(total), ply === total)}
+      {navButton('Virar tabuleiro', <IconFlip />, () => setOrientation((o) => (o === 'white' ? 'black' : 'white')))}
+    </>
+  )
+
+  const progressBar = progress && (
+    <Progress
+      aria-label="Progresso da análise"
+      size="sm"
+      value={(progress.done / Math.max(1, progress.total)) * 100}
+      label={`Analisando posição ${progress.done} de ${progress.total}`}
+      showValueLabel
+      classNames={{ label: 'text-sm', value: 'text-sm text-foreground-500' }}
+    />
+  )
+
+  const errorBox = error && (
+    <p role="alert" className="rounded-medium bg-danger/10 px-3 py-2 text-sm text-danger">
+      {error}
+    </p>
+  )
+
+  const moveDetail = (isCompact: boolean) =>
+    analysis && (
+      <MoveDetail
+        key={isCompact ? ply : undefined}
+        move={current}
+        initialEval={analysis.initialEval}
+        opening={current?.opening}
+        orientation={orientation}
+        previewIndex={preview}
+        onPreview={setPreview}
+        note={notes[ply]}
+        onNoteChange={canNote && current ? changeNote : undefined}
+        compact={isCompact}
+      />
+    )
+
+  const summary = analysis && (
+    <Summary game={game} analysis={analysis} comment={comment} onCommentChange={canNote ? changeComment : undefined} />
+  )
+
+  // Celular em retrato: tudo numa tela (100dvh), sem rolar a página. O tabuleiro ocupa o que sobra.
+  if (compact) {
+    return (
+      <div className="flex h-dvh flex-col overflow-hidden">
+        {header}
+        <main className="flex min-h-0 flex-1 flex-col gap-1 px-3 pb-3 pt-1">
+          {playerStrip(top, 'h-8')}
+          <div className="flex min-h-0 flex-1 justify-center [container-type:size]">
+            <div className="flex gap-1.5" style={{ width: 'min(100cqw, calc(100cqh + 1.875rem))' }}>
+              <EvalBar score={evalNow} orientation={orientation} />
+              <div className="min-w-0 flex-1">
+                <BoardView fen={fen} move={current} orientation={orientation} preview={previewMove} />
+              </div>
+            </div>
+          </div>
+          {playerStrip(top === 'w' ? 'b' : 'w', 'h-8')}
+          <MoveStrip moves={analysis?.moves ?? game.moves} ply={ply} onSelect={go} />
+          {/* Altura fixa: progresso, erro e card ocupam o mesmo espaço, e o tabuleiro não se mexe */}
+          <div className="h-32 shrink-0 overflow-y-auto">
+            {errorBox}
+            {progressBar ? <div className="rounded-medium bg-content2 p-3">{progressBar}</div> : moveDetail(true)}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {navButtons}
+            {navButton('Resumo', <IconChart />, () => setSummaryOpen(true), !analysis)}
+          </div>
+        </main>
+        <Drawer isOpen={summaryOpen} onOpenChange={setSummaryOpen} placement="bottom" size="lg">
+          <DrawerContent>
+            <DrawerHeader>Resumo</DrawerHeader>
+            <DrawerBody className="flex flex-col gap-5 pb-8">
+              {/* shrink-0: numa coluna flex o gráfico (overflow-hidden) encolheria até 0 */}
+              <div className="shrink-0">{analysis && <EvalGraph analysis={analysis} ply={ply} onSelect={go} />}</div>
+              {summary}
+            </DrawerBody>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    )
+  }
+
   return (
     <>
       {header}
@@ -390,13 +497,7 @@ export default function App() {
             </div>
           </div>
           {playerStrip(top === 'w' ? 'b' : 'w')}
-          <div className="mt-2 flex gap-2">
-            {navButton('Início', <IconFirst />, () => go(0), ply === 0)}
-            {navButton('Anterior', <IconPrev />, () => go(ply - 1), ply === 0)}
-            {navButton('Próximo', <IconNext />, () => go(ply + 1), ply === total)}
-            {navButton('Fim', <IconLast />, () => go(total), ply === total)}
-            {navButton('Virar tabuleiro', <IconFlip />, () => setOrientation((o) => (o === 'white' ? 'black' : 'white')))}
-          </div>
+          <div className="mt-2 flex gap-2">{navButtons}</div>
           {analysis && (
             <div className="mt-4">
               <EvalGraph analysis={analysis} ply={ply} onSelect={go} />
@@ -405,23 +506,8 @@ export default function App() {
         </section>
 
         <aside className="flex min-w-0 flex-col gap-4 lg:max-h-[calc(100vh-7rem)]">
-          {progress && (
-            <div className="rounded-medium bg-content1 p-4">
-              <Progress
-                aria-label="Progresso da análise"
-                size="sm"
-                value={(progress.done / Math.max(1, progress.total)) * 100}
-                label={`Analisando posição ${progress.done} de ${progress.total}`}
-                showValueLabel
-                classNames={{ label: 'text-sm', value: 'text-sm text-foreground-500' }}
-              />
-            </div>
-          )}
-          {error && (
-            <p role="alert" className="rounded-medium bg-danger/10 px-3 py-2 text-sm text-danger">
-              {error}
-            </p>
-          )}
+          {progressBar && <div className="rounded-medium bg-content1 p-4">{progressBar}</div>}
+          {errorBox}
 
           <div className="flex min-h-0 flex-1 flex-col rounded-large bg-content1 p-4">
             <Tabs
@@ -432,31 +518,13 @@ export default function App() {
               classNames={{ base: '-mx-1', panel: 'flex min-h-0 flex-1 flex-col px-0 pb-0' }}
             >
               <Tab key="moves" title="Lances">
-                {analysis && (
-                  <MoveDetail
-                    move={current}
-                    initialEval={analysis.initialEval}
-                    opening={current?.opening}
-                    orientation={orientation}
-                    previewIndex={preview}
-                    onPreview={setPreview}
-                    note={notes[ply]}
-                    onNoteChange={canNote && current ? changeNote : undefined}
-                  />
-                )}
+                {moveDetail(false)}
                 <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 max-lg:max-h-96">
                   <MoveList moves={analysis?.moves ?? game.moves} ply={ply} onSelect={go} notes={notes} />
                 </div>
               </Tab>
               <Tab key="summary" title="Resumo" isDisabled={!analysis}>
-                {analysis && (
-                  <Summary
-                    game={game}
-                    analysis={analysis}
-                    comment={comment}
-                    onCommentChange={canNote ? changeComment : undefined}
-                  />
-                )}
+                {summary}
               </Tab>
             </Tabs>
           </div>

@@ -43,3 +43,6 @@ export const IconSettings = (p: SVGProps<SVGSVGElement>) => (
 export const IconMore = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M12 6h.01M12 12h.01M12 18h.01" strokeWidth={3} /></svg>
 )
+export const IconChart = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 19h16M7 15l4-5 3 3 5-7" /></svg>
+)

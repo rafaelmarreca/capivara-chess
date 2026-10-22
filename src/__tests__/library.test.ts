@@ -11,7 +11,7 @@ import { createNoteSaver } from '../library/noteSaver'
 import { authDomainFor, isFirebaseConfigured } from '../library/firebaseConfig'
 import { migrateLocalToRemote } from '../library/migrate'
 import { analysisFields } from '../library/analysisFields'
-import { nearestScrollTop } from '../ui/scroll'
+import { nearestScroll, nearestScrollTop } from '../ui/scroll'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -345,5 +345,14 @@ describe('nearestScrollTop (lista de lances rola sozinha, sem mexer na página)'
   })
   it('item acima: rola até o topo do item', () => {
     expect(nearestScrollTop({ scrollTop: 200, height: 100 }, { top: 120, height: 20 })).toBe(120)
+  })
+})
+
+describe('nearestScroll (eixo genérico, usado na faixa horizontal)', () => {
+  it('item à direita: rola o mínimo para mostrar o fim', () => {
+    expect(nearestScroll(0, 300, 400, 50)).toBe(150)
+  })
+  it('item à esquerda: rola até o começo do item', () => {
+    expect(nearestScroll(500, 300, 420, 50)).toBe(420)
   })
 })
