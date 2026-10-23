@@ -29,12 +29,10 @@ function list(items: string[]): string {
   return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
 }
 
-/** Quantidade de material em palavras: "um peão", "uma peça", "uma torre", "uma dama". */
+/** Material em palavras só quando o valor bate com uma peça; senão, em pontos ("10 pontos de material"). */
 function amount(points: number, queen = 'uma dama'): string {
-  if (points >= 9) return queen
-  if (points >= 5) return 'uma torre'
-  if (points >= 3) return 'uma peça'
-  return points === 2 ? 'dois peões' : 'um peão'
+  const named: Record<number, string> = { 1: 'um peão', 2: 'dois peões', 3: 'uma peça', 5: 'uma torre', 9: queen }
+  return named[points] ?? `${points} pontos de material`
 }
 
 const colorName = (c: Color) => (c === 'w' ? 'as brancas' : 'as pretas')
@@ -82,6 +80,8 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
       return ['Isso permite ', { san: m.forkSan }, `, um garfo ${list(m.targets.map(withIn))}.`]
     case 'missedFork':
       return [`${Who} ${verb('tinha', 'tinham')} `, { san: m.forkSan }, `, um garfo ${list(m.targets.map(withIn))}.`]
+    case 'mates':
+      return ['Xeque-mate.']
     case 'castles':
       return ['Roca: o rei fica protegido e a torre entra em jogo.']
     case 'develops':

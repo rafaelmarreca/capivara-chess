@@ -4,6 +4,7 @@ import { VALUES } from './sacrifice'
 import { positionalMotifs, type Arrow, type PositionalMotif } from './positional'
 
 type TacticalMotif =
+  | { kind: 'mates' }
   | { kind: 'allowedMate'; mateIn: number; firstSan: string }
   | { kind: 'missedMate'; mateIn: number; bestSan: string }
   | { kind: 'hangs'; piece: PieceSymbol; square: Square; captureSan: string; loss: number; defended: boolean }
@@ -136,6 +137,8 @@ export function detectMotifs({
   const opp: Color = color === 'w' ? 'b' : 'w'
   const best = before.lines[0]
   const reply = after.lines[0]
+  // O próprio lance dá mate: é isso que importa (a posição final não tem avaliação de mate)
+  if (sanAt(fenBefore, uci)?.endsWith('#')) return [{ kind: 'mates' }]
   if (!best || !reply) return []
   const bestPv = best.pv
   const replyPv = reply.pv
@@ -157,6 +160,8 @@ export function detectMotifs({
   if (bad && mateBefore != null && !playedBest && mateFor(reply.score, color) == null && bestSan) {
     motifs.push({ kind: 'missedMate', mateIn: mateBefore, bestSan })
   }
+  // Com mate na linha, contar material só confunde
+  if (motifs.length) return motifs
 
   // Perda de fato (saldo real negativo) e pior que a melhor linha; o número dito é o menor dos dois
   const lost = Math.min(-swingPlayed, swingBest - swingPlayed)

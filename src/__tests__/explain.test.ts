@@ -120,7 +120,7 @@ describe('explainMotif', () => {
     expect(say(hangs, 'you')).toBe('Você deixou o cavalo em c3 sem defesa: depois de Bxc3, você perde uma peça.')
     expect(say(hangs, 'w')).toBe('As brancas deixaram o cavalo em c3 sem defesa: depois de Bxc3, as brancas perdem uma peça.')
     expect(say({ ...hangs, piece: 'q', square: 'd4', defended: true, loss: 6 }, 'you')).toBe(
-      'Você deixou a dama em d4 mal defendida: depois de Bxc3, você perde uma torre.',
+      'Você deixou a dama em d4 mal defendida: depois de Bxc3, você perde 6 pontos de material.',
     )
   })
 
@@ -340,5 +340,29 @@ describe('setas dos motivos táticos', () => {
     const fen = '3r2k1/5ppp/8/8/8/8/3R1PPP/6K1 w - - 0 1'
     const m = detectMotifs(input(fen, 'd2a2', 'blunder', ev({ cp: 0 }, ['g1f1']), ev({ mate: -1 }, ['d8d1'])))
     expect(m[0].arrow).toEqual({ from: 'd8', to: 'd1' })
+  })
+})
+
+describe('mate em primeiro lugar (prints do usuário)', () => {
+  it('o lance que dá mate diz mate, não "ganha uma torre"', () => {
+    const fen = '5r1k/6pp/8/8/8/8/8/5QK1 w - - 0 1'
+    const m = detectMotifs(input(fen, 'f1f8', 'best', ev({ mate: 1 }, ['f1f8']), ev({ cp: 100000 }, [])))
+    expect(m).toEqual([{ kind: 'mates' }])
+    expect(plainText(explainMotif({ kind: 'mates' }, 'you', 'w'))).toBe('Xeque-mate.')
+  })
+
+  it('com mate na linha, nada de contar material', () => {
+    // a2a3?? deixa Rxd1# — a torre em d1 cai, mas o que importa é o mate
+    const fen = '3r2k1/5ppp/8/8/8/8/P4PPP/3R2K1 w - - 0 1'
+    const m = detectMotifs(input(fen, 'a2a3', 'blunder', ev({ cp: 0 }, ['d1d8', 'g8f8']), ev({ mate: -1 }, ['d8d1'])))
+    expect(m.map((x) => x.kind)).toEqual(['allowedMate'])
+  })
+
+  it('material só leva nome de peça quando o valor bate', () => {
+    const say = (loss: number) =>
+      plainText(explainMotif({ kind: 'hangs', piece: 'r', square: 'c8', captureSan: 'Qxc8+', loss, defended: false }, 'b', 'b'))
+    expect(say(5)).toContain('perdem uma torre.')
+    expect(say(10)).toContain('perdem 10 pontos de material.')
+    expect(say(6)).toContain('perdem 6 pontos de material.')
   })
 })

@@ -84,7 +84,7 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
               </button>
             )}
           </div>
-          <LineChips line={move.bestLine} active={previewIndex} onSelect={onPreview} />
+          <LineChips line={move.bestLine} active={previewIndex} onSelect={onPreview} nowrap={compact} />
         </div>
       )}
 
