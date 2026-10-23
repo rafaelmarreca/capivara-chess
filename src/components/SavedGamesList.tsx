@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownTrigger,
   Modal,
+  Skeleton,
   ModalBody,
   ModalContent,
   ModalFooter,
@@ -20,12 +21,29 @@ import { IconMore } from './icons'
 interface Props {
   games: SavedGameMeta[]
   myNames: string[]
+  /** Login sendo confirmado: a lista ainda vai mudar (pode vir da conta) */
+  loading?: boolean
   onOpen: (id: string) => void
   onDelete: (id: string) => void
 }
 
-export function SavedGamesList({ games, myNames, onOpen, onDelete }: Props) {
+export function SavedGamesList({ games, myNames, loading, onOpen, onDelete }: Props) {
   const [confirming, setConfirming] = useState<string | null>(null)
+  if (loading) {
+    return (
+      <div className="mt-10" aria-busy="true">
+        <h2 className="text-lg font-semibold tracking-tight">Minhas análises</h2>
+        <ul className="mt-3 divide-y divide-divider overflow-hidden rounded-large bg-content1">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="flex items-center justify-between gap-4 px-4 py-3.5">
+              <Skeleton className="h-4 w-2/3 rounded-small" />
+              <Skeleton className="h-4 w-16 rounded-small" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
   if (games.length === 0) return null
 
   return (

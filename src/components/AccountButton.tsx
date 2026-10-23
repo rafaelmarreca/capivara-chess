@@ -8,6 +8,7 @@ import {
   DropdownSection,
   DropdownTrigger,
   Modal,
+  Skeleton,
   Tooltip,
   ModalBody,
   ModalContent,
@@ -83,19 +84,20 @@ export function AccountButton({ library, onSignedOut }: Props) {
             </DropdownSection>
           </DropdownMenu>
         </Dropdown>
+      ) : library.authPending ? (
+        // Sessão sendo confirmada (ex.: volta do login): o lugar do avatar, sem texto
+        <Skeleton aria-label="Entrando" className="h-8 w-8 rounded-full" />
       ) : (
         <Tooltip content={shownError} isOpen={!!shownError} placement="bottom-end" color="danger" className="max-w-64">
           <Button
             size="sm"
             variant="flat"
-            isLoading={busy || library.authPending}
+            isLoading={busy}
             onPress={signIn}
             onPointerEnter={library.prepare}
             onFocus={library.prepare}
           >
-            {library.authPending ? (
-              'Entrando…'
-            ) : shownError ? (
+            {shownError ? (
               'Tentar de novo'
             ) : (
               <>

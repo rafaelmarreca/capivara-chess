@@ -402,7 +402,7 @@ export default function App() {
         {header}
         <main>
           <ImportPanel onGame={openGame} incoming={incoming}>
-            <SavedGamesList games={library.games} myNames={myNames} onOpen={openSaved} onDelete={deleteSaved} />
+            <SavedGamesList games={library.games} myNames={myNames} loading={library.authPending} onOpen={openSaved} onDelete={deleteSaved} />
           </ImportPanel>
         </main>
       </>
