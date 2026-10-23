@@ -1,4 +1,5 @@
 import type { Motif } from './analysis/explain'
+import type { BestReason } from './analysis/bestReason'
 
 export type Color = 'w' | 'b'
 
@@ -74,6 +75,7 @@ export interface AnalyzedMove extends ParsedMove {
   bestLine: LineMove[] // linha principal do motor a partir da posição antes do lance
   opening?: string
   motifs: Motif[] // o que aconteceu de concreto, confirmado pela linha da engine
+  bestReason: BestReason | null // por que o melhor lance era melhor (null se o jogado foi o melhor)
 }
 
 export interface PlayerSummary {

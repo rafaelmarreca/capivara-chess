@@ -366,3 +366,20 @@ describe('mate em primeiro lugar (prints do usuário)', () => {
     expect(say(6)).toContain('perdem 6 pontos de material.')
   })
 })
+
+describe('janela igual para saldo e perdas (linha real do Blackburne)', () => {
+  it('não diz "deixou o peão em g2" quando a torre perdida é recuperada (Nxh8)', () => {
+    const c = new Chess()
+    for (const s of ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nd4', 'Nxe5', 'Qg5']) c.move(s)
+    const best = 'c4f7 e8e7 e1g1 g5e5 f7g8 h8g8 c2c3 d4e6 d2d4 e5f6'.split(' ')
+    const reply = 'g5g2 d2d3 g2h1 e1d2 h1g2 f7h8 g2f2 d2c3 g8f6 c4f7'.split(' ')
+    const m = detectMotifs(input(c.fen(), 'e5f7', 'blunder', ev({ cp: 62 }, best), ev({ cp: -407 }, reply)))
+    expect(m.some((x) => x.kind === 'hangs' && x.square === 'g2')).toBe(false)
+  })
+
+  it('peça que não explica a perda vira frase genérica', () => {
+    expect(plainText(explainMotif({ kind: 'losesMaterial', firstSan: 'Qxg2', loss: 3 }, 'you', 'w'))).toBe(
+      'Isso permite Qxg2: no saldo, você perde uma peça.',
+    )
+  })
+})

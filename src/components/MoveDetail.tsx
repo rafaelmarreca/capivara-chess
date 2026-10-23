@@ -7,7 +7,7 @@ import { LineChips } from './LineChips'
 import { San } from './San'
 import { NoteField } from './NoteField'
 import { IconPrev } from './icons'
-import { explainMotif, subjectFor } from '../ui/explainText'
+import { explainBest, explainMotif, subjectFor, type Segment } from '../ui/explainText'
 
 interface Props {
   move?: AnalyzedMove
@@ -23,6 +23,9 @@ interface Props {
   /** Celular: card mais enxuto e nota recolhível. */
   compact?: boolean
 }
+
+const renderSegments = (segments: Segment[]) =>
+  segments.map((s, j) => (typeof s === 'string' ? <span key={j}>{s}</span> : <San key={j} san={s.san} />))
 
 const NO_SUGGESTION = ['book', 'best', 'brilliant', 'great', 'forced']
 
@@ -58,9 +61,7 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
       {move.classification === 'book' && opening && <p className="mt-2 text-sm text-foreground-500">{opening}</p>}
       {move.motifs.map((m, i) => (
         <p key={i} className="mt-2 text-sm leading-relaxed">
-          {explainMotif(m, subjectFor(move.color, orientation), move.color).map((s, j) =>
-            typeof s === 'string' ? <span key={j}>{s}</span> : <San key={j} san={s.san} />,
-          )}
+          {renderSegments(explainMotif(m, subjectFor(move.color, orientation), move.color))}
         </p>
       ))}
 
@@ -83,6 +84,9 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
               </Button>
             )}
           </div>
+          {!playedWasBest && move.bestReason && (
+            <p className="mb-2 text-sm leading-relaxed">{renderSegments(explainBest(move.bestReason))}</p>
+          )}
           <LineChips line={move.bestLine} active={previewIndex} onSelect={onPreview} nowrap={compact} />
         </div>
       )}

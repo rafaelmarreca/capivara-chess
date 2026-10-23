@@ -9,6 +9,7 @@ type TacticalMotif =
   | { kind: 'missedMate'; mateIn: number; bestSan: string }
   | { kind: 'hangs'; piece: PieceSymbol; square: Square; captureSan: string; loss: number; defended: boolean }
   | { kind: 'losesPiece'; piece: PieceSymbol; square: Square; firstSan: string; loss: number }
+  | { kind: 'losesMaterial'; firstSan: string; loss: number }
   | { kind: 'missedCapture'; piece: PieceSymbol; square: Square; bestSan: string; gain: number }
   | { kind: 'allowedFork'; forkSan: string; targets: PieceSymbol[]; loss: number }
   | { kind: 'missedFork'; forkSan: string; targets: PieceSymbol[]; gain: number }
@@ -93,7 +94,7 @@ export function forkTargets(fen: string, uci: string): PieceSymbol[] {
   return targets.length >= 2 ? targets : []
 }
 
-function sanAt(fen: string, uci: string): string | null {
+export function sanAt(fen: string, uci: string): string | null {
   return play(new Chess(fen), uci)?.san ?? null
 }
 
@@ -101,7 +102,7 @@ function sanAt(fen: string, uci: string): string | null {
  * Capturas do adversário de `color` na linha que não foram compensadas: cada captura de `color`
  * anula a captura adversária mais valiosa ainda aberta que não valha mais que ela (troca).
  */
-function netLossesAgainst(fen: string, pv: string[], color: Color): { move: Move; ply: number }[] {
+export function netLossesAgainst(fen: string, pv: string[], color: Color): { move: Move; ply: number }[] {
   const open: { move: Move; ply: number }[] = []
   walk(fen, pv, (m, ply) => {
     if (!m.captured) return
@@ -120,7 +121,17 @@ function netLossesAgainst(fen: string, pv: string[], color: Color): { move: Move
 const arrowOf = (m: Move | null | undefined): Arrow | undefined => (m ? { from: m.from, to: m.to } : undefined)
 const moveAt = (fen: string, uci: string | undefined) => (uci ? play(new Chess(fen), uci) : null)
 
-const mateFor = (score: Score | undefined, color: Color): number | null =>
+/**
+ * Saldo do lance jogado + resposta. A resposta é contada a partir de `fenAfter`, na mesma janela
+ * de netLossesAgainst, para o saldo e a lista de perdas nunca divergirem.
+ */
+export function playedSwing(fenBefore: string, fenAfter: string, uci: string, replyPv: string[], color: Color): number {
+  const own = moveAt(fenBefore, uci)
+  const first = (own?.captured ? VALUES[own.captured] : 0) + (own?.promotion ? VALUES[own.promotion] - 1 : 0)
+  return first + materialSwing(fenAfter, replyPv, color)
+}
+
+export const mateFor = (score: Score | undefined, color: Color): number | null =>
   score?.mate != null && (color === 'w' ? score.mate > 0 : score.mate < 0) ? Math.abs(score.mate) : null
 
 /** Motivos do lance, do mais importante para o menos; no máximo 2. Sem confirmação pela linha, nada. */
@@ -144,7 +155,7 @@ export function detectMotifs({
   const replyPv = reply.pv
   const playedBest = bestPv[0] === uci
   const swingBest = materialSwing(fenBefore, bestPv, color)
-  const swingPlayed = materialSwing(fenBefore, [uci, ...replyPv], color)
+  const swingPlayed = playedSwing(fenBefore, fenAfter, uci, replyPv, color)
   const motifs: Motif[] = []
   const bad = BAD.includes(classification)
 
@@ -177,7 +188,10 @@ export function detectMotifs({
         (a, c) => (!a || VALUES[c.move.captured!] > VALUES[a.move.captured!] ? c : a),
         null,
       )
-      if (worst && worst.ply === 0) {
+      if (worst && VALUES[worst.move.captured!] < lost && firstSan) {
+        // A peça capturada não explica a perda toda: frase só com o saldo
+        motifs.push({ kind: 'losesMaterial', firstSan, loss: lost, arrow: replyArrow })
+      } else if (worst && worst.ply === 0) {
         const cap = worst.move
         const square = capturedSquare(cap)
         const defended = new Chess(fenAfter).attackers(square, color).length > 0

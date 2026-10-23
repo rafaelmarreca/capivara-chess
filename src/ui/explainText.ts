@@ -1,5 +1,8 @@
 import type { Color, PieceSymbol } from 'chess.js'
 import type { Motif } from '../analysis/explain'
+import type { BestReason } from '../analysis/bestReason'
+import { VALUES } from '../analysis/sacrifice'
+import { formatScore } from '../analysis/winPercent'
 
 /** Pedaço de frase: texto ou lance em SAN (renderizado com a notação figurada). */
 export type Segment = string | { san: string }
@@ -66,6 +69,8 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
         { san: m.firstSan },
         `, e ${opponent} ${oppVerb('ganha', 'ganham')} ${withArticle(m.piece)} em ${m.square}: no saldo, ${who} ${verb('perde', 'perdem')} ${amount(m.loss)}.`,
       ]
+    case 'losesMaterial':
+      return ['Isso permite ', { san: m.firstSan }, `: no saldo, ${who} ${verb('perde', 'perdem')} ${amount(m.loss)}.`]
     case 'missedCapture':
       return [
         `${Who} ${verb('perdeu', 'perderam')} a chance de capturar ${withArticle(m.piece)} em ${m.square} com `,
@@ -97,5 +102,36 @@ export function explainMotif(m: Motif, subject: Subject, moveColor: Color): Segm
     case 'wins':
       if (m.mateIn != null) return [m.mateIn === 1 ? 'Leva a mate no próximo lance.' : `Leva a mate em ${m.mateIn}.`]
       return [`Ganha ${amount(m.gain, 'a dama')}.`]
+  }
+}
+
+/** Por que o melhor lance era melhor, no passado (é algo que não aconteceu). */
+export function explainBest(r: BestReason): Segment[] {
+  const san = { san: r.bestSan }
+  switch (r.kind) {
+    case 'mates':
+      return [san, r.mateIn === 1 ? ' dava mate.' : ` levava a mate em ${r.mateIn}.`]
+    case 'avoidsMate':
+      return [san, ' evitava o mate.']
+    case 'saves':
+      return [san, ` tirava ${withArticle(r.piece)} do ataque.`]
+    case 'defends':
+      return [san, ` defendia ${withArticle(r.piece)} em ${r.square}.`]
+    case 'winsMaterial':
+      return [san, ` ganhava ${r.piece && VALUES[r.piece] === r.gain ? withArticle(r.piece) : amount(r.gain)}.`]
+    case 'positional': {
+      const m = r.motif
+      const text = {
+        castles: 'rocava e punha o rei em segurança',
+        develops: m.kind === 'develops' ? `desenvolvia ${withArticle(m.piece)}` : '',
+        opensLine: m.kind === 'opensLine' ? (m.piece === 'b' ? `abria a diagonal do bispo de ${m.from}` : `abria caminho para a dama em ${m.from}`) : '',
+        centerPawn: 'ocupava o centro',
+        openFile: m.kind === 'openFile' ? `colocava ${withArticle(m.piece)} na coluna ${m.semi ? 'semiaberta' : 'aberta'} ${m.file}` : '',
+        passedPawn: m.kind === 'passedPawn' ? `criava um peão passado em ${m.square}` : '',
+      }[m.kind]
+      return [san, ` ${text}.`]
+    }
+    case 'evalDiff':
+      return ['Com ', san, `, a avaliação ficava em ${formatScore(r.best)}, em vez de ${formatScore(r.played)}.`]
   }
 }

@@ -14,7 +14,8 @@ import { gameAccuracy, moveAccuracy } from './accuracy'
 import { isBookPosition, openingName } from './book'
 import { classifyMove } from './classify'
 import { isSacrifice, VALUES } from './sacrifice'
-import { detectMotifs } from './explain'
+import { detectMotifs, type ExplainInput } from './explain'
+import { bestReason } from './bestReason'
 import { CHECKMATE_CP, winPercentFor, winPercentWhite } from './winPercent'
 
 export const CLASSIFICATIONS: Classification[] = [
@@ -113,6 +114,18 @@ export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: nu
     }
 
     const bestLine = best ? pvToLine(move.fenBefore, best.pv) : []
+    const explainInput: ExplainInput = {
+      fenBefore: move.fenBefore,
+      fenAfter: move.fenAfter,
+      uci: move.uci,
+      color: move.color,
+      classification,
+      before,
+      after: evals[i + 1],
+      // Só é retomada se for na mesma casa; tomar outra peça é ganho inteiro
+      previousCaptured: game.moves[i - 1]?.to === move.to ? capturedValue(game.moves[i - 1]) : 0,
+    }
+    const motifs = detectMotifs(explainInput)
     moves.push({
       ...move,
       classification,
@@ -125,17 +138,8 @@ export function buildAnalysis(game: ParsedGame, evals: PositionEval[], depth: nu
       bestMoveSan: bestLine[0]?.san,
       bestLine,
       opening: opening?.name,
-      motifs: detectMotifs({
-        fenBefore: move.fenBefore,
-        fenAfter: move.fenAfter,
-        uci: move.uci,
-        color: move.color,
-        classification,
-        before,
-        after: evals[i + 1],
-        // Só é retomada se for na mesma casa; tomar outra peça é ganho inteiro
-        previousCaptured: game.moves[i - 1]?.to === move.to ? capturedValue(game.moves[i - 1]) : 0,
-      }),
+      motifs,
+      bestReason: bestReason(explainInput, motifs),
     })
   })
 
