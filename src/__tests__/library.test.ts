@@ -13,6 +13,7 @@ import { migrateLocalToRemote } from '../library/migrate'
 import { analysisFields } from '../library/analysisFields'
 import { nearestScroll, nearestScrollTop } from '../ui/scroll'
 import { swipeIntent } from '../ui/swipe'
+import { lineNav } from '../ui/lineNav'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -372,5 +373,23 @@ describe('swipeIntent (cabeçalho escondido no celular)', () => {
   it('puxar para cima fecha quando está aberto', () => {
     expect(swipeIntent(300, 200, vh, true)).toBe('close')
     expect(swipeIntent(300, 200, vh, false)).toBeNull()
+  })
+})
+
+describe('lineNav (botões navegam na linha do motor quando ela está aberta)', () => {
+  const len = 5
+  it('próximo e anterior andam pela linha', () => {
+    expect(lineNav('next', 1, len)).toBe(2)
+    expect(lineNav('prev', 2, len)).toBe(1)
+  })
+  it('no fim da linha, próximo fica parado', () => {
+    expect(lineNav('next', 4, len)).toBe(4)
+  })
+  it('anterior no primeiro lance volta para a partida', () => {
+    expect(lineNav('prev', 0, len)).toBeNull()
+  })
+  it('início volta para a partida; fim vai ao último lance da linha', () => {
+    expect(lineNav('first', 3, len)).toBeNull()
+    expect(lineNav('last', 0, len)).toBe(4)
   })
 })

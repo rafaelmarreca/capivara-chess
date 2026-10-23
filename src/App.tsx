@@ -36,6 +36,7 @@ import { IconChart, IconFirst, IconFlip, IconLast, IconMoon, IconNext, IconPrev,
 import { MoveStrip } from './components/MoveStrip'
 import { useCompactLayout } from './ui/useCompactLayout'
 import { swipeIntent } from './ui/swipe'
+import { lineNav, type NavAction } from './ui/lineNav'
 
 const DEFAULT_DEPTH = 16
 
@@ -405,9 +406,23 @@ export default function App() {
     )
   }
 
-  const navButton = (label: string, icon: React.ReactNode, onPress: () => void, disabled = false) => (
+  // Com a linha do motor aberta, as setas andam por ela (em destaque, para ficar claro)
+  const inLine = preview != null
+  const nav = (action: NavAction, gameTarget: number) => () =>
+    inLine ? setPreview(lineNav(action, preview, lineLength)) : go(gameTarget)
+  const atLineEnd = inLine && preview === lineLength - 1
+
+  const navButton = (label: string, icon: React.ReactNode, onPress: () => void, disabled = false, line = false) => (
     <Tooltip content={label} delay={500} closeDelay={0}>
-      <Button isIconOnly variant="flat" aria-label={label} onPress={onPress} isDisabled={disabled} className="flex-1">
+      <Button
+        isIconOnly
+        variant="flat"
+        color={line ? 'primary' : 'default'}
+        aria-label={label}
+        onPress={onPress}
+        isDisabled={disabled}
+        className="flex-1"
+      >
         {icon}
       </Button>
     </Tooltip>
@@ -415,10 +430,10 @@ export default function App() {
 
   const navButtons = (
     <>
-      {navButton('Início', <IconFirst />, () => go(0), ply === 0)}
-      {navButton('Anterior', <IconPrev />, () => go(ply - 1), ply === 0)}
-      {navButton('Próximo', <IconNext />, () => go(ply + 1), ply === total)}
-      {navButton('Fim', <IconLast />, () => go(total), ply === total)}
+      {navButton(inLine ? 'Voltar à partida' : 'Início', <IconFirst />, nav('first', 0), !inLine && ply === 0, inLine)}
+      {navButton('Anterior', <IconPrev />, nav('prev', ply - 1), !inLine && ply === 0, inLine)}
+      {navButton('Próximo', <IconNext />, nav('next', ply + 1), inLine ? atLineEnd : ply === total, inLine)}
+      {navButton('Fim', <IconLast />, nav('last', total), inLine ? atLineEnd : ply === total, inLine)}
       {navButton('Virar tabuleiro', <IconFlip />, () => setOrientation((o) => (o === 'white' ? 'black' : 'white')))}
     </>
   )

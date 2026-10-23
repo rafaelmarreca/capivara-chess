@@ -1,3 +1,4 @@
+import { Button } from '@heroui/react'
 import type { AnalyzedMove, Score } from '../types'
 import { formatScore } from '../analysis/winPercent'
 import { CLASS_META } from '../ui/classifications'
@@ -5,6 +6,7 @@ import { ClassBadge } from './ClassBadge'
 import { LineChips } from './LineChips'
 import { San } from './San'
 import { NoteField } from './NoteField'
+import { IconPrev } from './icons'
 import { explainMotif, subjectFor } from '../ui/explainText'
 
 interface Props {
@@ -76,12 +78,9 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
               </>
             )}
             {previewIndex != null && (
-              <button
-                onClick={() => onPreview(null)}
-                className="ml-auto rounded-small text-xs font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
-              >
+              <Button size="sm" color="primary" className="ml-auto h-7 font-semibold" startContent={<IconPrev />} onPress={() => onPreview(null)}>
                 Voltar à partida
-              </button>
+              </Button>
             )}
           </div>
           <LineChips line={move.bestLine} active={previewIndex} onSelect={onPreview} nowrap={compact} />
