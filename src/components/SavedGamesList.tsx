@@ -64,24 +64,31 @@ export function SavedGamesList({ games, myNames, loading, onOpen, onDelete }: Pr
             <li key={g.id} className="flex items-center">
               <button
                 onClick={() => onOpen(g.id)}
-                className="flex min-w-0 flex-1 items-center justify-between gap-4 px-4 py-3 text-left outline-none hover:bg-content2 focus-visible:bg-content2"
+                className="flex min-w-0 flex-1 flex-col gap-1 px-4 py-3 text-left outline-none hover:bg-content2 focus-visible:bg-content2"
               >
-                <span className="min-w-0 truncate font-medium">
+                {/* Duas linhas: os nomes podem ser longos, mas o resultado nunca é cortado */}
+                <span className="w-full truncate font-medium">
                   {name('w')} × {name('b')}
+                </span>
+                <span className="flex items-center gap-2 text-sm text-foreground-500">
                   {result && (
                     <span
-                      className={`ml-2 font-normal ${
-                        mine === 'vitória' ? 'text-success' : mine === 'derrota' ? 'text-danger' : 'text-foreground-500'
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        mine === 'vitória'
+                          ? 'bg-success/15 text-success'
+                          : mine === 'derrota'
+                            ? 'bg-danger/15 text-danger'
+                            : 'bg-default/40 text-foreground-600'
                       }`}
                     >
-                      {result}
+                      {mine ? mine[0].toUpperCase() + mine.slice(1) : result}
                     </span>
                   )}
-                </span>
-                <span className="shrink-0 text-sm text-foreground-500">
-                  {[savedDate(g.updatedAt), notes > 0 && `${notes} ${notes === 1 ? 'nota' : 'notas'}`]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  <span>
+                    {[savedDate(g.updatedAt), notes > 0 && `${notes} ${notes === 1 ? 'nota' : 'notas'}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
                 </span>
               </button>
               <Dropdown placement="bottom-end">
