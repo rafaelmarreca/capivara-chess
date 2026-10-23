@@ -7,11 +7,11 @@ import { formatScore } from '../analysis/winPercent'
 /** Pedaço de frase: texto ou lance em SAN (renderizado com a notação figurada). */
 export type Segment = string | { san: string }
 
-/** 'you' = o lado que está embaixo no tabuleiro; senão, a cor (3ª pessoa). */
+/** 'you' = o lado do jogador (identificado pelo nome, ou o de baixo do tabuleiro); senão, a cor (3ª pessoa). */
 export type Subject = 'you' | Color
 
-export function subjectFor(moveColor: Color, orientation: 'white' | 'black'): Subject {
-  return (moveColor === 'w') === (orientation === 'white') ? 'you' : moveColor
+export function subjectFor(moveColor: Color, you: Color): Subject {
+  return moveColor === you ? 'you' : moveColor
 }
 
 export const plainText = (segments: Segment[]) => segments.map((s) => (typeof s === 'string' ? s : s.san)).join('')

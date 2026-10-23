@@ -13,8 +13,8 @@ interface Props {
   move?: AnalyzedMove
   initialEval?: Score
   opening?: string
-  /** Lado de baixo do tabuleiro: é o "você" das explicações. */
-  orientation: 'white' | 'black'
+  /** O lado do jogador: é o "você" das explicações. */
+  you: 'w' | 'b'
   previewIndex: number | null
   onPreview: (index: number | null) => void
   /** Sem onNoteChange o campo de nota não aparece (partida ainda não salva). */
@@ -29,7 +29,7 @@ const renderSegments = (segments: Segment[]) =>
 
 const NO_SUGGESTION = ['book', 'best', 'brilliant', 'great', 'forced']
 
-export function MoveDetail({ move, initialEval, opening, orientation, previewIndex, onPreview, note, onNoteChange, compact }: Props) {
+export function MoveDetail({ move, initialEval, opening, you, previewIndex, onPreview, note, onNoteChange, compact }: Props) {
   if (!move) {
     return (
       <div className="rounded-medium bg-content2 p-4">
@@ -61,7 +61,7 @@ export function MoveDetail({ move, initialEval, opening, orientation, previewInd
       {move.classification === 'book' && opening && <p className="mt-2 text-sm text-foreground-500">{opening}</p>}
       {move.motifs.map((m, i) => (
         <p key={i} className="mt-2 text-sm leading-relaxed">
-          {renderSegments(explainMotif(m, subjectFor(move.color, orientation), move.color))}
+          {renderSegments(explainMotif(m, subjectFor(move.color, you), move.color))}
         </p>
       ))}
 

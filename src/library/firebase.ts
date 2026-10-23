@@ -158,6 +158,17 @@ function fire(write: Promise<void>): void {
 }
 
 /** Biblioteca na conta: users/{uid}/games/{id} (tudo menos evals) e users/{uid}/evals/{id}. */
+/** Nomes de usuário que o jogador marcou como "sou eu", guardados na conta. */
+export async function loadProfileNames(uid: string): Promise<string[]> {
+  const snap = await getDoc(doc(firestore(), 'users', uid, 'profile', 'me'))
+  const names = snap.data()?.names
+  return Array.isArray(names) ? names.filter((x): x is string => typeof x === 'string') : []
+}
+
+export function saveProfileNames(uid: string, names: string[]): void {
+  fire(setDoc(doc(firestore(), 'users', uid, 'profile', 'me'), { names, updatedAt: Date.now() }))
+}
+
 export function createFirestoreRepo(uid: string): GameRepo {
   const fs = firestore()
   const gameRef = (id: string) => doc(fs, 'users', uid, 'games', id)

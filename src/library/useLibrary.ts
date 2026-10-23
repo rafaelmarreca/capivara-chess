@@ -41,6 +41,9 @@ export interface Library {
   signOut(force?: boolean): Promise<'done' | 'unsynced' | 'tabs-open'>
   /** Repositório para gravar agora: espera a troca local ↔ conta (migração) terminar. */
   ready(): Promise<GameRepo | null>
+  /** Nomes "sou eu" guardados na conta (null sem login). */
+  loadNames(): Promise<string[] | null>
+  saveNames(names: string[]): void
   /** O App registra aqui como gravar as notas ainda no debounce, para o logout não perdê-las. */
   registerFlush(fn: () => Promise<void>): void
 }
@@ -164,9 +167,20 @@ export function useLibrary(): Library {
     return repoRef.current
   }, [])
 
+  const loadNames = useCallback(
+    async () => (user && fbRef.current ? fbRef.current.loadProfileNames(user.uid) : null),
+    [user],
+  )
+  const saveNames = useCallback(
+    (names: string[]) => {
+      if (user && fbRef.current) fbRef.current.saveProfileNames(user.uid, names)
+    },
+    [user],
+  )
+
   const registerFlush = useCallback((fn: () => Promise<void>) => {
     flushRef.current = fn
   }, [])
 
-  return { repo, games, refresh, configured, user, authPending, authError, signIn, prepare, signOut, registerFlush, ready }
+  return { repo, games, refresh, configured, user, authPending, authError, signIn, prepare, signOut, registerFlush, ready, loadNames, saveNames }
 }

@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Button,
   Drawer,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
   DrawerBody,
   DrawerContent,
   DrawerHeader,
@@ -37,6 +41,7 @@ import { MoveStrip } from './components/MoveStrip'
 import { useCompactLayout } from './ui/useCompactLayout'
 import { swipeIntent } from './ui/swipe'
 import { lineNav, type NavAction } from './ui/lineNav'
+import { loadLocalNames, mergeNames, saveLocalNames, sideOf, toggleName } from './library/identity'
 
 const DEFAULT_DEPTH = 16
 
@@ -93,6 +98,7 @@ export default function App() {
   const library = useLibrary()
   const compact = useCompactLayout()
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [myNames, setMyNames] = useState<string[]>([]) // usuários marcados como "sou eu"
   const [headerOpen, setHeaderOpen] = useState(false) // cabeçalho escondido do celular
   const touchStartY = useRef<number | null>(null)
   const [notes, setNotes] = useState<Record<number, string>>({})
@@ -174,6 +180,32 @@ export default function App() {
       await saverRef.current?.flush()
     })
   }, [registerFlush])
+
+  // "Sou eu": nomes no aparelho e, com login, na conta (os dois se juntam)
+  useEffect(() => setMyNames(loadLocalNames()), [])
+  const { user, loadNames, saveNames } = library
+  useEffect(() => {
+    if (!user) return
+    loadNames()
+      .then((remote) => {
+        if (!remote) return
+        const merged = mergeNames(loadLocalNames(), remote)
+        setMyNames(merged)
+        saveLocalNames(merged)
+        if (merged.length !== remote.length) saveNames(merged)
+      })
+      .catch(() => {})
+  }, [user, loadNames, saveNames])
+
+  const toggleMe = (name: string) => {
+    const next = toggleName(myNames, name)
+    setMyNames(next)
+    saveLocalNames(next)
+    saveNames(next)
+    // Ao se marcar, o tabuleiro vira para o seu lado
+    const side = game && sideOf(game.headers, next)
+    if (side) setOrientation(side === 'b' ? 'black' : 'white')
+  }
 
   // Revisão no celular: o gesto de puxar o cabeçalho não pode virar o "puxar para recarregar" do navegador
   const compactReview = compact && !!game
@@ -276,7 +308,8 @@ export default function App() {
     setPly(0)
     setPreview(null)
     setTab('moves')
-    setOrientation('white')
+    // Abre do lado do jogador, se ele já se identificou nessa partida
+    setOrientation(sideOf(g.headers, myNames) === 'b' ? 'black' : 'white')
   }
 
   const closeGame = () => {
@@ -369,7 +402,7 @@ export default function App() {
         {header}
         <main>
           <ImportPanel onGame={openGame} incoming={incoming}>
-            <SavedGamesList games={library.games} onOpen={openSaved} onDelete={deleteSaved} />
+            <SavedGamesList games={library.games} myNames={myNames} onOpen={openSaved} onDelete={deleteSaved} />
           </ImportPanel>
         </main>
       </>
@@ -380,6 +413,9 @@ export default function App() {
   const previewMove = preview != null ? current?.bestLine[preview] : undefined
   const fen = previewMove?.fenAfter ?? (ply === 0 ? game.startFen : game.moves[ply - 1].fenAfter)
   const evalNow = ply === 0 ? analysis?.initialEval : current?.evalAfter
+  const mySide = sideOf(game.headers, myNames)
+  // "Você" nas frases: o lado identificado; sem identificação, o lado de baixo do tabuleiro
+  const youColor = mySide ?? (orientation === 'white' ? 'w' : 'b')
   const hints = current?.motifs.flatMap((m) => (m.arrow ? [m.arrow] : [])) ?? []
   const h = game.headers
   const top = orientation === 'white' ? 'b' : 'w'
@@ -396,7 +432,19 @@ export default function App() {
           className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-foreground/20"
           style={{ background: color === 'w' ? '#ECEEF0' : '#3A404B' }}
         />
-        <span className="truncate font-medium">{name}</span>
+        <Dropdown placement="bottom-start">
+          <DropdownTrigger>
+            <button className="flex min-w-0 items-center gap-1.5 rounded-small outline-none focus-visible:ring-2 focus-visible:ring-focus">
+              <span className="truncate font-medium">{name}</span>
+              {mySide === color && (
+                <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">você</span>
+              )}
+            </button>
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Quem é você" onAction={() => toggleMe(name)}>
+            <DropdownItem key="me">{mySide === color ? 'Não sou eu' : 'Sou eu'}</DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
         {elo && <span className="text-foreground-500">({elo})</span>}
         {accuracy != null && <span className="text-foreground-500">{accuracy.toFixed(1)}%</span>}
         {clock && (
@@ -462,7 +510,7 @@ export default function App() {
         move={current}
         initialEval={analysis.initialEval}
         opening={current?.opening}
-        orientation={orientation}
+        you={youColor}
         previewIndex={preview}
         onPreview={setPreview}
         note={notes[ply]}

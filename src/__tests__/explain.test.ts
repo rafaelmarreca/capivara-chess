@@ -111,9 +111,9 @@ describe('explainMotif', () => {
   const hangs: Motif = { kind: 'hangs', piece: 'n', square: 'c3', captureSan: 'Bxc3', loss: 3, defended: false }
 
   it('você = lado de baixo do tabuleiro', () => {
-    expect(subjectFor('w', 'white')).toBe('you')
-    expect(subjectFor('w', 'black')).toBe('w')
-    expect(subjectFor('b', 'black')).toBe('you')
+    expect(subjectFor('w', 'w')).toBe('you')
+    expect(subjectFor('w', 'b')).toBe('w')
+    expect(subjectFor('b', 'b')).toBe('you')
   })
 
   it('peça entregue, em 2ª e 3ª pessoa', () => {
