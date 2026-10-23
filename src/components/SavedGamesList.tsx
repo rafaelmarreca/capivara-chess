@@ -35,9 +35,13 @@ export function SavedGamesList({ games, myNames, loading, onOpen, onDelete }: Pr
         <h2 className="text-lg font-semibold tracking-tight">Minhas análises</h2>
         <ul className="mt-3 divide-y divide-divider overflow-hidden rounded-large bg-content1">
           {[0, 1, 2].map((i) => (
-            <li key={i} className="flex items-center justify-between gap-4 px-4 py-3.5">
+            // Mesmo formato do item: nomes em cima; resultado, data e notas embaixo
+            <li key={i} className="flex flex-col gap-2 px-4 py-3.5">
               <Skeleton className="h-4 w-2/3 rounded-small" />
-              <Skeleton className="h-4 w-16 rounded-small" />
+              <span className="flex items-center gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3.5 w-20 rounded-small" />
+              </span>
             </li>
           ))}
         </ul>
